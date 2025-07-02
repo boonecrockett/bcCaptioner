@@ -4,6 +4,7 @@
 [functions]
   # Optimize for image processing
   node_bundler = "esbuild"
+  included_files = ["fonts/**"]
   
 [build.environment]
   # Ensure Sharp works properly on Netlify
