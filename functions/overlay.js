@@ -342,8 +342,31 @@ exports.handler = async (event) => {
     
     console.log(`[DEBUG] All text rendering attempts completed`);
     
+    // Debug Canvas state before buffer conversion
+    console.log(`[DEBUG] Canvas dimensions before buffer:`, canvas.width, 'x', canvas.height);
+    
+    // Check if Canvas has any content at all
+    try {
+      const testImageData = canvasContext.getImageData(0, 0, 100, 100);
+      let totalPixels = 0;
+      for (let i = 3; i < testImageData.data.length; i += 4) {
+        if (testImageData.data[i] > 0) totalPixels++;
+      }
+      console.log(`[DEBUG] Canvas top-left 100x100 non-transparent pixels:`, totalPixels);
+    } catch (canvasError) {
+      console.log(`[DEBUG] Could not check Canvas content:`, canvasError.message);
+    }
+    
+    // Convert overlay canvas to buffer
+    console.log(`[DEBUG] Converting Canvas to buffer...`);
     const overlayBuffer = canvas.toBuffer('image/png');
-    console.log(`[DEBUG] Full-size overlay buffer created: ${overlayBuffer.length} bytes`);
+    console.log(`[DEBUG] Full-size overlay buffer created:`, overlayBuffer.length, 'bytes');
+    
+    // Check if buffer is valid
+    if (overlayBuffer.length < 1000) {
+      console.error(`[ERROR] Overlay buffer suspiciously small:`, overlayBuffer.length, 'bytes');
+      console.log(`[DEBUG] Buffer first 50 bytes:`, overlayBuffer.slice(0, 50));
+    }
     
     console.log(`[DEBUG] Text lines: ${lines.length}`);
     console.log(`[DEBUG] Lines content:`, lines);
