@@ -247,19 +247,54 @@ exports.handler = async (event) => {
     canvasContext.roundRect(boxLeft, boxTop, boxWidth, boxHeight, cornerRadius);
     canvasContext.fill();
     
-    // Set up text rendering
+    // Set up text rendering with comprehensive debugging
+    console.log(`[DEBUG] Setting up Canvas text rendering...`);
+    console.log(`[DEBUG] Canvas context available:`, !!canvasContext);
+    console.log(`[DEBUG] Lines to render:`, lines.length, lines);
+    
     canvasContext.fillStyle = 'white';
-    canvasContext.font = `${fontSize}px "${fontFamily.split(',')[0].replace(/"/g, '')}"`;
+    console.log(`[DEBUG] Fill style set to: white`);
+    
+    const fontString = `${fontSize}px "${fontFamily.split(',')[0].replace(/"/g, '')}"`;
+    canvasContext.font = fontString;
+    console.log(`[DEBUG] Font set to:`, fontString);
+    
     canvasContext.textAlign = 'center';
     canvasContext.textBaseline = 'top';
+    console.log(`[DEBUG] Text align: center, baseline: top`);
+    
+    // Test if font is actually available
+    try {
+      const testMeasure = canvasContext.measureText('Test');
+      console.log(`[DEBUG] Font measurement test successful:`, testMeasure.width);
+    } catch (fontError) {
+      console.error(`[ERROR] Font measurement test failed:`, fontError.message);
+      // Try fallback font
+      canvasContext.font = `${fontSize}px Arial, sans-serif`;
+      console.log(`[DEBUG] Switched to fallback font: ${fontSize}px Arial, sans-serif`);
+    }
     
     // Render text lines centered within the box
     const boxCenterX = boxLeft + (boxWidth / 2);
+    console.log(`[DEBUG] Box center X position:`, boxCenterX);
+    
     lines.forEach((line, index) => {
       const yPosition = boxTop + padding + (index * (fontSize + 2)); // 2px line spacing
-      canvasContext.fillText(line, boxCenterX, yPosition);
-      console.log(`[DEBUG] Line ${index + 1} centered at x=${boxCenterX}, y=${yPosition}: "${line}"`);
+      console.log(`[DEBUG] Rendering line ${index + 1} at x=${boxCenterX}, y=${yPosition}: "${line}"`);
+      
+      try {
+        canvasContext.fillText(line, boxCenterX, yPosition);
+        console.log(`[DEBUG] Line ${index + 1} rendered successfully`);
+      } catch (renderError) {
+        console.error(`[ERROR] Failed to render line ${index + 1}:`, renderError.message);
+        // Try simple fallback rendering
+        canvasContext.font = `${fontSize}px Arial`;
+        canvasContext.fillText(line, boxCenterX, yPosition);
+        console.log(`[DEBUG] Line ${index + 1} rendered with fallback font`);
+      }
     });
+    
+    console.log(`[DEBUG] All text rendering attempts completed`);
     
     const overlayBuffer = canvas.toBuffer('image/png');
     console.log(`[DEBUG] Full-size overlay buffer created: ${overlayBuffer.length} bytes`);
