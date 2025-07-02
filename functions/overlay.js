@@ -12,7 +12,11 @@ function wrapText(context, text, maxWidth) {
     // Try to measure text, but handle measurement failures
     let canMeasure = true;
     try {
-        context.measureText(text).width;
+        const testWidth = context.measureText(text).width;
+        if (testWidth < 10 || isNaN(testWidth)) {
+            canMeasure = false;
+            console.log('[FALLBACK] Text measurement returned invalid result, using word-based wrapping');
+        }
     } catch (error) {
         canMeasure = false;
         console.log('[FALLBACK] Text measurement not available, using word-based wrapping');
