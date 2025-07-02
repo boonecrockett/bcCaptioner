@@ -237,12 +237,19 @@ exports.handler = async (event) => {
     const textTop = boxTop + padding - 6; // Move text up 6 pixels
     const textLines = lines.map((line, index) => {
       const yPosition = textTop + (index * (fontSize + 2)) + fontSize; // Adjust for SVG baseline
+      // Escape text content to prevent control characters
+      const escapedLine = line
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
       return `<text x="${boxLeft + (boxWidth / 2)}" y="${yPosition}" 
                     font-family="Arial, sans-serif" 
                     font-size="${fontSize}" 
                     fill="white" 
                     text-anchor="middle" 
-                    dominant-baseline="text-before-edge">${line}</text>`;
+                    dominant-baseline="text-before-edge">${escapedLine}</text>`;
     }).join('\n');
     
     const svgOverlay = `
