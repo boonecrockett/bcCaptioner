@@ -27,6 +27,34 @@ function wrapText(context, text, maxWidth) {
 
 exports.handler = async (event) => {
   try {
+    // Check if this is a request for a cached image first
+    const queryParams = event.queryStringParameters || {};
+    if (queryParams.serve === 'image' && queryParams.id) {
+      // Retrieve cached image
+      global.imageCache = global.imageCache || new Map();
+      const cachedImage = global.imageCache.get(queryParams.id);
+      
+      if (!cachedImage) {
+        return {
+          statusCode: 404,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Image not found or expired' })
+        };
+      }
+      
+      // Serve the cached image
+      return {
+        statusCode: 200,
+        headers: { 
+          'Content-Type': 'image/jpeg',
+          'Cache-Control': 'public, max-age=3600',
+          'Content-Length': cachedImage.buffer.length.toString()
+        },
+        body: cachedImage.buffer.toString('base64'),
+        isBase64Encoded: true
+      };
+    }
+
     let caption, brandColor, imageBuffer;
 
     // Check for multipart/form-data, typically from n8n
@@ -162,34 +190,6 @@ exports.handler = async (event) => {
       .toBuffer();
 
     console.log(`Output image size: ${outputBuffer.length} bytes`);
-
-    // Check if this is a request for the image itself (via query parameter)
-    const queryParams = event.queryStringParameters || {};
-    if (queryParams.serve === 'image' && queryParams.id) {
-      // Retrieve cached image
-      global.imageCache = global.imageCache || new Map();
-      const cachedImage = global.imageCache.get(queryParams.id);
-      
-      if (!cachedImage) {
-        return {
-          statusCode: 404,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: 'Image not found or expired' })
-        };
-      }
-      
-      // Serve the cached image
-      return {
-        statusCode: 200,
-        headers: { 
-          'Content-Type': 'image/jpeg',
-          'Cache-Control': 'public, max-age=3600',
-          'Content-Length': cachedImage.buffer.length.toString()
-        },
-        body: cachedImage.buffer.toString('base64'),
-        isBase64Encoded: true
-      };
-    }
 
     // Generate unique ID for this image
     const timestamp = Date.now();
