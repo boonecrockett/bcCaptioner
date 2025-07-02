@@ -254,16 +254,24 @@ exports.handler = async (event) => {
       
       console.log(`[DEBUG] Original line: "${line}"`);
       console.log(`[DEBUG] Cleaned line: "${cleanedLine}"`);
-      return `<text x="${boxLeft + (boxWidth / 2)}" y="${yPosition}" 
-                    font-family="Arial, sans-serif" 
-                    font-size="${fontSize}" 
-                    fill="white" 
-                    text-anchor="middle" 
-                    dominant-baseline="text-before-edge">${cleanedLine}</text>`;
+      return `<text x="${boxLeft + (boxWidth / 2)}" y="${yPosition}" class="overlay-text">${cleanedLine}</text>`;
     }).join('\n');
     
-    const svgOverlay = `
+    const svgOverlay = `<?xml version="1.0" encoding="UTF-8"?>
       <svg width="${outputWidth}" height="${outputHeight}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <style type="text/css">
+            <![CDATA[
+              .overlay-text {
+                font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif;
+                font-size: ${fontSize}px;
+                fill: white;
+                text-anchor: middle;
+                dominant-baseline: text-before-edge;
+              }
+            ]]>
+          </style>
+        </defs>
         <!-- Background box with rounded corners -->
         <rect x="${boxLeft}" y="${boxTop}" width="${boxWidth}" height="${boxHeight}" 
               fill="rgba(0,0,0,0.85)" rx="5" ry="5"/>
