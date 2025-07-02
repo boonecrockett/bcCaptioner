@@ -292,6 +292,17 @@ exports.handler = async (event) => {
     console.log(`[DEBUG] Text align: center, baseline: top`);
     console.log(`[DEBUG] Final font selected:`, selectedFont);
     
+    // Test basic text rendering first
+    console.log(`[DEBUG] Testing basic text rendering...`);
+    canvasContext.fillStyle = 'red';
+    canvasContext.font = '20px Arial';
+    canvasContext.fillText('TEST', 100, 100);
+    console.log(`[DEBUG] Basic test text rendered at 100,100`);
+    
+    // Reset for actual text rendering
+    canvasContext.fillStyle = 'white';
+    canvasContext.font = selectedFont;
+    
     // Render text lines centered within the box
     const boxCenterX = boxLeft + (boxWidth / 2);
     console.log(`[DEBUG] Box center X position:`, boxCenterX);
@@ -300,10 +311,29 @@ exports.handler = async (event) => {
       const yPosition = boxTop + padding + (index * (fontSize + 2)); // 2px line spacing
       console.log(`[DEBUG] Rendering line ${index + 1} at x=${boxCenterX}, y=${yPosition}: "${line}"`);
       
+      // Check Canvas state before rendering
+      console.log(`[DEBUG] Canvas fillStyle before render:`, canvasContext.fillStyle);
+      console.log(`[DEBUG] Canvas font before render:`, canvasContext.font);
+      console.log(`[DEBUG] Canvas globalAlpha:`, canvasContext.globalAlpha);
+      
       try {
         // Force render without measurement validation
         canvasContext.fillText(line, boxCenterX, yPosition);
         console.log(`[DEBUG] Line ${index + 1} rendered (forced)`);
+        
+        // Check if pixels actually changed after rendering
+        try {
+          const imageData = canvasContext.getImageData(boxCenterX - 50, yPosition, 100, fontSize);
+          const pixels = imageData.data;
+          let nonTransparentPixels = 0;
+          for (let i = 3; i < pixels.length; i += 4) { // Check alpha channel
+            if (pixels[i] > 0) nonTransparentPixels++;
+          }
+          console.log(`[DEBUG] Line ${index + 1} non-transparent pixels:`, nonTransparentPixels);
+        } catch (pixelError) {
+          console.log(`[DEBUG] Could not check pixels:`, pixelError.message);
+        }
+        
       } catch (renderError) {
         console.error(`[ERROR] Failed to render line ${index + 1}:`, renderError.message);
         console.log(`[DEBUG] Line ${index + 1} render failed completely`);
