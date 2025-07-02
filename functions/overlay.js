@@ -74,7 +74,6 @@ exports.handler = async (event) => {
     // --- Set up Canvas for Text Measurement ---
     const canvas = createCanvas(200, 200); // Dummy canvas
     // Register the font
-        // Register the font
     const fontPath = path.join(__dirname, '..', 'fonts', 'RobotoCondensed-Bold.ttf');
     GlobalFonts.registerFromPath(fontPath, 'Roboto Condensed Bold');
 
@@ -110,7 +109,7 @@ exports.handler = async (event) => {
           dominant-baseline="middle"
           text-anchor="middle"
           fill="#FFFFFF"
-          font-family="Arial Narrow, sans-serif"
+          font-family="Roboto Condensed Bold, sans-serif"
           font-size="${fontSize}"
           font-weight="bold"
         >
@@ -141,8 +140,6 @@ exports.handler = async (event) => {
     // Text is positioned with the box
     const textLeft = boxLeft;
     const textTop = boxTop + 4; // Manual vertical adjustment
-
-    console.log(`[DEBUG] boxTop: ${boxTop}, textTop: ${textTop}`);
 
     // Process image: resize and composite layers
     const outputBuffer = await sharp(imageBuffer)
