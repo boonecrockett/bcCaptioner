@@ -2,6 +2,8 @@ const sharp = require('sharp');
 const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const parser = require('lambda-multipart-parser');
 const path = require('path');
+const fs = require('fs').promises;
+const crypto = require('crypto');
 
 // Helper function to wrap text
 function wrapText(context, text, maxWidth) {
@@ -161,15 +163,35 @@ exports.handler = async (event) => {
 
     console.log(`Output image size: ${outputBuffer.length} bytes`);
 
+    // Generate unique filename
+    const timestamp = Date.now();
+    const hash = crypto.createHash('md5').update(outputBuffer).digest('hex').substring(0, 8);
+    const filename = `overlay-${timestamp}-${hash}.jpg`;
+    
+    // Store image temporarily in /tmp directory
+    const tempPath = `/tmp/${filename}`;
+    await fs.writeFile(tempPath, outputBuffer);
+    
+    // Create URL for the temporary file
+    const baseUrl = process.env.URL || 'https://bccaptioner.netlify.app';
+    const imageUrl = `${baseUrl}/.netlify/functions/serve-temp/${filename}`;
+    
+    console.log(`Image stored temporarily at: ${tempPath}`);
+    console.log(`Image URL: ${imageUrl}`);
+
     return {
       statusCode: 200,
       headers: { 
-        'Content-Type': 'image/jpeg',
-        'Cache-Control': 'no-cache', // Disable cache for testing
-        'Content-Length': outputBuffer.length.toString()
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache'
       },
-      body: outputBuffer.toString('base64'),
-      isBase64Encoded: true
+      body: JSON.stringify({
+        success: true,
+        imageUrl: imageUrl,
+        filename: filename,
+        size: outputBuffer.length,
+        caption: caption
+      })
     };
 
   } catch (err) {
