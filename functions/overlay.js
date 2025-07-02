@@ -255,24 +255,43 @@ exports.handler = async (event) => {
     canvasContext.fillStyle = 'white';
     console.log(`[DEBUG] Fill style set to: white`);
     
-    const fontString = `${fontSize}px "${fontFamily.split(',')[0].replace(/"/g, '')}"`;
-    canvasContext.font = fontString;
-    console.log(`[DEBUG] Font set to:`, fontString);
+    // Try multiple font approaches for server compatibility
+    let workingFont = null;
+    const fontOptions = [
+      `${fontSize}px "Roboto Condensed", Arial, sans-serif`,
+      `${fontSize}px "RobotoCondensed-Regular", Arial, sans-serif`,
+      `${fontSize}px Arial, sans-serif`,
+      `${fontSize}px sans-serif`
+    ];
+    
+    for (const fontOption of fontOptions) {
+      canvasContext.font = fontOption;
+      console.log(`[DEBUG] Testing font:`, fontOption);
+      
+      try {
+        const testMeasure = canvasContext.measureText('Test');
+        console.log(`[DEBUG] Font measurement result:`, testMeasure.width);
+        
+        if (testMeasure.width > 5) { // Valid measurement
+          workingFont = fontOption;
+          console.log(`[DEBUG] Font working:`, fontOption);
+          break;
+        }
+      } catch (fontError) {
+        console.error(`[ERROR] Font test failed for ${fontOption}:`, fontError.message);
+      }
+    }
+    
+    if (!workingFont) {
+      workingFont = `${fontSize}px Arial`;
+      canvasContext.font = workingFont;
+      console.log(`[DEBUG] Using final fallback font:`, workingFont);
+    }
     
     canvasContext.textAlign = 'center';
     canvasContext.textBaseline = 'top';
     console.log(`[DEBUG] Text align: center, baseline: top`);
-    
-    // Test if font is actually available
-    try {
-      const testMeasure = canvasContext.measureText('Test');
-      console.log(`[DEBUG] Font measurement test successful:`, testMeasure.width);
-    } catch (fontError) {
-      console.error(`[ERROR] Font measurement test failed:`, fontError.message);
-      // Try fallback font
-      canvasContext.font = `${fontSize}px Arial, sans-serif`;
-      console.log(`[DEBUG] Switched to fallback font: ${fontSize}px Arial, sans-serif`);
-    }
+    console.log(`[DEBUG] Final font selected:`, workingFont);
     
     // Render text lines centered within the box
     const boxCenterX = boxLeft + (boxWidth / 2);
