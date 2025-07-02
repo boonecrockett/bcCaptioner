@@ -163,20 +163,61 @@ exports.handler = async (event) => {
 
     console.log(`Output image size: ${outputBuffer.length} bytes`);
 
-    // Generate unique filename
+    // Check if this is a request for the image itself (via query parameter)
+    const queryParams = event.queryStringParameters || {};
+    if (queryParams.serve === 'image' && queryParams.id) {
+      // Retrieve cached image
+      global.imageCache = global.imageCache || new Map();
+      const cachedImage = global.imageCache.get(queryParams.id);
+      
+      if (!cachedImage) {
+        return {
+          statusCode: 404,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Image not found or expired' })
+        };
+      }
+      
+      // Serve the cached image
+      return {
+        statusCode: 200,
+        headers: { 
+          'Content-Type': 'image/jpeg',
+          'Cache-Control': 'public, max-age=3600',
+          'Content-Length': cachedImage.buffer.length.toString()
+        },
+        body: cachedImage.buffer.toString('base64'),
+        isBase64Encoded: true
+      };
+    }
+
+    // Generate unique ID for this image
     const timestamp = Date.now();
     const hash = crypto.createHash('md5').update(outputBuffer).digest('hex').substring(0, 8);
-    const filename = `overlay-${timestamp}-${hash}.jpg`;
+    const imageId = `${timestamp}-${hash}`;
     
-    // Store image temporarily in /tmp directory
-    const tempPath = `/tmp/${filename}`;
-    await fs.writeFile(tempPath, outputBuffer);
+    // Store image data in memory cache (simple approach)
+    global.imageCache = global.imageCache || new Map();
+    global.imageCache.set(imageId, {
+      buffer: outputBuffer,
+      timestamp: timestamp,
+      caption: caption
+    });
     
-    // Create URL for the temporary file
+    // Clean up old entries (keep only last 10)
+    if (global.imageCache.size > 10) {
+      const entries = Array.from(global.imageCache.entries());
+      entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+      for (let i = 0; i < entries.length - 10; i++) {
+        global.imageCache.delete(entries[i][0]);
+      }
+    }
+    
+    // Create URL for the image
     const baseUrl = process.env.URL || 'https://bccaptioner.netlify.app';
-    const imageUrl = `${baseUrl}/.netlify/functions/serve-temp/${filename}`;
+    const imageUrl = `${baseUrl}/.netlify/functions/overlay?serve=image&id=${imageId}`;
     
-    console.log(`Image stored temporarily at: ${tempPath}`);
+    console.log(`Image cached with ID: ${imageId}`);
     console.log(`Image URL: ${imageUrl}`);
 
     return {
@@ -188,7 +229,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         success: true,
         imageUrl: imageUrl,
-        filename: filename,
+        imageId: imageId,
         size: outputBuffer.length,
         caption: caption
       })
