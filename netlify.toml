@@ -1,0 +1,10 @@
+[build]
+functions = "functions"
+
+[functions]
+  # Optimize for image processing
+  node_bundler = "esbuild"
+  
+[build.environment]
+  # Ensure Sharp works properly on Netlify
+  SHARP_IGNORE_GLOBAL_LIBVIPS = "1"

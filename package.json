@@ -1,0 +1,25 @@
+{
+  "name": "instagram-overlay-netlify",
+  "version": "1.0.0",
+  "description": "16:9 Instagram image overlay service for automated social media posting",
+  "scripts": {
+    "test": "node test-local.js",
+    "dev": "netlify dev",
+    "build": "echo 'No build step required'",
+    "start": "netlify dev",
+    "start:dev": "nodemon test-server.js"
+  },
+  "dependencies": {
+    "sharp": "^0.33.1",
+    "canvas": "^2.11.2",
+    "express": "^5.1.0",
+    "multer": "^2.0.1"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0",
+    "nodemon": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
