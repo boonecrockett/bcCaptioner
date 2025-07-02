@@ -5,9 +5,52 @@ const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
 
-// Helper function to wrap text
+// Helper function to wrap text with balanced line splitting
 function wrapText(context, text, maxWidth) {
     const words = text.split(' ');
+    
+    // If text fits on one line, return as is
+    if (context.measureText(text).width <= maxWidth) {
+        return [text];
+    }
+    
+    // For two-line splitting, find the best midpoint
+    if (words.length >= 4) {
+        const midPoint = Math.floor(words.length / 2);
+        
+        // Try different split points around the midpoint to find the most balanced
+        let bestSplit = midPoint;
+        let bestBalance = Infinity;
+        
+        for (let i = Math.max(1, midPoint - 2); i <= Math.min(words.length - 1, midPoint + 2); i++) {
+            const firstLine = words.slice(0, i).join(' ');
+            const secondLine = words.slice(i).join(' ');
+            
+            const firstWidth = context.measureText(firstLine).width;
+            const secondWidth = context.measureText(secondLine).width;
+            
+            // Check if both lines fit within maxWidth
+            if (firstWidth <= maxWidth && secondWidth <= maxWidth) {
+                // Calculate balance score (lower is better)
+                const balance = Math.abs(firstWidth - secondWidth);
+                if (balance < bestBalance) {
+                    bestBalance = balance;
+                    bestSplit = i;
+                }
+            }
+        }
+        
+        const firstLine = words.slice(0, bestSplit).join(' ');
+        const secondLine = words.slice(bestSplit).join(' ');
+        
+        // Verify both lines fit
+        if (context.measureText(firstLine).width <= maxWidth && 
+            context.measureText(secondLine).width <= maxWidth) {
+            return [firstLine, secondLine];
+        }
+    }
+    
+    // Fallback to original greedy wrapping if balanced splitting fails
     let lines = [];
     let currentLine = words[0] || '';
 
@@ -130,11 +173,19 @@ exports.handler = async (event) => {
         console.log(`[FALLBACK] Estimated width: ${longestLineWidth}px for ${longestLine.length} characters`);
     }
     
-    // Exact box sizing: text width + 5px padding on each side
-    const boxWidth = Math.ceil(longestLineWidth) + (padding * 2); // 5px left + 5px right
+    // Cap box width at image width to prevent composite errors
+    const maxBoxWidth = outputWidth - 20; // Leave 10px margin on each side
+    const calculatedBoxWidth = Math.ceil(longestLineWidth) + (padding * 2);
+    const boxWidth = Math.min(calculatedBoxWidth, maxBoxWidth);
+    
+    console.log(`[DEBUG] Calculated box width: ${calculatedBoxWidth}px, capped at: ${boxWidth}px (max: ${maxBoxWidth}px)`);
 
-    // Exact box height: text height + 5px padding on top and bottom
-    const boxHeight = textHeight + (padding * 2); // 5px top + 5px bottom
+    // Calculate box height based on number of text lines
+    const lineSpacing = 2; // 2px spacing between lines
+    const totalTextHeight = (textHeight * lines.length) + (lineSpacing * Math.max(0, lines.length - 1));
+    const boxHeight = totalTextHeight + (padding * 2); // padding on top and bottom
+    
+    console.log(`[DEBUG] Lines: ${lines.length}, text height per line: ${textHeight}px, total text height: ${totalTextHeight}px, box height: ${boxHeight}px`);
 
     // Calculate final positions with boundary checking
     let boxLeft = Math.round((outputWidth - boxWidth) / 2);
@@ -148,38 +199,44 @@ exports.handler = async (event) => {
     console.log(`[DEBUG] Image dimensions: ${outputWidth}x${outputHeight}px`);
     console.log(`[DEBUG] Overlay boundaries check: boxLeft=${boxLeft}, boxTop=${boxTop}, boxRight=${boxLeft + boxWidth}, boxBottom=${boxTop + boxHeight}`);
 
-    // --- Create Canvas-based Text Overlay (more reliable than SVG on server) ---
-    const canvas = createCanvas(boxWidth, boxHeight);
+    // --- Create Full-Size Canvas Overlay (avoids Sharp composite dimension issues) ---
+    console.log(`[DEBUG] Creating full-size overlay canvas: ${outputWidth}x${outputHeight}`);
+    const canvas = createCanvas(outputWidth, outputHeight);
     const canvasContext = canvas.getContext('2d');
     
-    // Set up canvas for text rendering with rounded corners
+    // Make canvas transparent
+    canvasContext.clearRect(0, 0, outputWidth, outputHeight);
+    
+    // Set up canvas for text rendering with rounded corners at calculated position
     canvasContext.fillStyle = 'rgba(0, 0, 0, 0.85)';
     const cornerRadius = 5; // 5px rounded corners
     
-    // Draw rounded rectangle
+    // Draw rounded rectangle at the calculated position
     canvasContext.beginPath();
-    canvasContext.roundRect(0, 0, boxWidth, boxHeight, cornerRadius);
+    canvasContext.roundRect(boxLeft, boxTop, boxWidth, boxHeight, cornerRadius);
     canvasContext.fill();
     
-    // Configure text rendering
+    // Set up text rendering
     canvasContext.fillStyle = 'white';
     canvasContext.font = `${fontSize}px "${fontFamily.split(',')[0].replace(/"/g, '')}"`;
     canvasContext.textAlign = 'center';
-    canvasContext.textBaseline = 'middle';
+    canvasContext.textBaseline = 'top';
     
-    // Draw text exactly in the center of the box (5px padding accounted for)
-    const textX = boxWidth / 2;
-    const textY = (boxHeight / 2) - 1; // Move text up by 1 pixel
-    canvasContext.fillText(lines[0], textX, textY); // Single line for now
+    // Render text lines centered within the box
+    const boxCenterX = boxLeft + (boxWidth / 2);
+    lines.forEach((line, index) => {
+      const yPosition = boxTop + padding + (index * (fontSize + 2)); // 2px line spacing
+      canvasContext.fillText(line, boxCenterX, yPosition);
+      console.log(`[DEBUG] Line ${index + 1} centered at x=${boxCenterX}, y=${yPosition}: "${line}"`);
+    });
     
-    // Convert canvas to buffer
     const overlayBuffer = canvas.toBuffer('image/png');
+    console.log(`[DEBUG] Full-size overlay buffer created: ${overlayBuffer.length} bytes`);
     
     console.log(`[DEBUG] Text lines: ${lines.length}`);
     console.log(`[DEBUG] Lines content:`, lines);
     console.log(`[DEBUG] Longest line width: ${longestLineWidth}px`);
     console.log(`[DEBUG] Box dimensions: ${boxWidth}x${boxHeight}px`);
-    console.log(`[DEBUG] Box position: left=${boxLeft}, top=${boxTop}`);
     console.log(`[DEBUG] Text position: left=${boxLeft}, top=${boxTop + 4}`);
     console.log(`[DEBUG] Font family: ${fontFamily}`);
     console.log(`[DEBUG] Canvas font: ${fontSize}px "${fontFamily.split(',')[0].replace(/"/g, '')}"`);
@@ -189,14 +246,14 @@ exports.handler = async (event) => {
     // Process image: resize and composite single overlay
     let outputBuffer;
     try {
-      console.log(`[DEBUG] About to composite overlay: ${boxWidth}x${boxHeight} at position ${boxLeft},${boxTop} on ${outputWidth}x${outputHeight} image`);
+      console.log(`[DEBUG] About to composite full-size overlay: ${outputWidth}x${outputHeight} on ${outputWidth}x${outputHeight} image`);
       outputBuffer = await sharp(imageBuffer)
         .resize(outputWidth, outputHeight, { 
           fit: 'cover', 
           position: 'center',
           withoutEnlargement: false
         })
-        .composite([{ input: overlayBuffer, left: boxLeft, top: boxTop }])
+        .composite([{ input: overlayBuffer }])
         .jpeg({ quality: 100 })
         .toBuffer();
       console.log(`[DEBUG] Composite operation successful, output size: ${outputBuffer.length} bytes`);
