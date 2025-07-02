@@ -37,7 +37,19 @@ exports.handler = async (event) => {
       }
 
       imageBuffer = imageFile.content;
-      caption = (result.caption && result.caption.toString('utf-8')) || 'Default Caption';
+      const rawCaption = result.caption;
+      console.log('[DEBUG] Raw caption from parser:', rawCaption);
+      console.log('[DEBUG] Type of raw caption:', typeof rawCaption);
+
+      let decodedCaption = '';
+      if (rawCaption) {
+        decodedCaption = rawCaption.toString('utf-8');
+        console.log('[DEBUG] Decoded caption:', decodedCaption);
+      }
+
+      caption = decodedCaption || 'Default Caption';
+      console.log('[DEBUG] Final caption value:', caption);
+
       brandColor = (result.brandColor && result.brandColor.toString('utf-8')) || '#667eea';
 
     } else {
