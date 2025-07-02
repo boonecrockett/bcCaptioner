@@ -101,13 +101,43 @@ exports.handler = async (event) => {
 
     // --- Set up Canvas for Text Measurement ---
     let fontFamily = 'Arial, sans-serif'; // Default fallback
+    let fontLoaded = false;
+    
     try {
-      const fontPath = path.join(__dirname, '..', 'fonts', 'RobotoCondensed-Regular.ttf');
-      GlobalFonts.registerFromPath(fontPath, 'Roboto Condensed');
-      fontFamily = 'Roboto Condensed, Arial, sans-serif';
-      console.log('Custom font loaded successfully');
+      const fontPath = path.join(__dirname, '..', 'fonts', 'OpenSans-Regular.ttf');
+      console.log(`Attempting to load font from: ${fontPath}`);
+      
+      // Check if font file exists
+      await fs.access(fontPath);
+      console.log('Font file exists, registering...');
+      
+      // Register Open Sans font (known to work well with @napi-rs/canvas)
+      const success = GlobalFonts.registerFromPath(fontPath, 'Open Sans');
+      
+      if (success) {
+        // Verify registration
+        const availableFonts = GlobalFonts.families;
+        console.log('Available fonts after registration:', availableFonts.slice(-3)); // Show last 3
+        
+        fontFamily = 'Open Sans, Arial, sans-serif';
+        fontLoaded = true;
+        console.log('✅ Open Sans font loaded successfully for Netlify compatibility');
+      } else {
+        console.warn('⚠️ Open Sans font registration failed, trying fallback registration');
+        
+        // Try without explicit name as fallback
+        const fallbackSuccess = GlobalFonts.registerFromPath(fontPath);
+        if (fallbackSuccess) {
+          const availableFonts = GlobalFonts.families;
+          const lastFont = availableFonts[availableFonts.length - 1];
+          fontFamily = `${lastFont}, Arial, sans-serif`;
+          fontLoaded = true;
+          console.log(`✅ Font loaded with automatic name: ${lastFont}`);
+        }
+      }
     } catch (error) {
-      console.warn('Custom font failed to load, using fallback:', error.message);
+      console.warn('❌ Custom font failed to load, using Arial fallback:', error.message);
+      console.warn('Font path attempted:', path.join(__dirname, '..', 'fonts', 'OpenSans-Regular.ttf'));
     }
 
     const measureCanvas = createCanvas(200, 100);
@@ -155,9 +185,14 @@ exports.handler = async (event) => {
     
     // Configure text rendering
     canvasContext.fillStyle = 'white';
-    canvasContext.font = `${fontSize}px "${fontFamily.split(',')[0].replace(/"/g, '')}"`;
+    const fontName = fontLoaded ? fontFamily.split(',')[0].trim() : 'Arial';
+    canvasContext.font = `${fontSize}px "${fontName}"`;
     canvasContext.textAlign = 'center';
     canvasContext.textBaseline = 'middle';
+    
+    console.log(`[DEBUG] Using font: ${fontName} (loaded: ${fontLoaded})`);
+    console.log(`[DEBUG] Canvas font string: ${canvasContext.font}`);
+    console.log(`[DEBUG] Font family: ${fontFamily}`);
     
     // Draw text exactly in the center of the box (5px padding accounted for)
     const textX = boxWidth / 2;
@@ -174,7 +209,8 @@ exports.handler = async (event) => {
     console.log(`[DEBUG] Box position: left=${boxLeft}, top=${boxTop}`);
     console.log(`[DEBUG] Text position: left=${boxLeft}, top=${boxTop + 4}`);
     console.log(`[DEBUG] Font family: ${fontFamily}`);
-    console.log(`[DEBUG] Canvas font: ${fontSize}px "${fontFamily.split(',')[0].replace(/"/g, '')}"`);
+    console.log(`[DEBUG] Font loaded: ${fontLoaded}`);
+    console.log(`[DEBUG] Canvas font: ${canvasContext.font}`);
     console.log(`[DEBUG] First line preview:`, lines[0] ? lines[0].substring(0, 50) : 'NO LINES');
     console.log(`[DEBUG] Using Canvas rendering instead of SVG to avoid fontconfig issues`);
 
