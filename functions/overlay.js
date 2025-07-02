@@ -94,17 +94,17 @@ exports.handler = async (event) => {
     const outputHeight = 628;
 
     // --- Text and Box Styling ---
-    const fontSize = 15;
-    const textHeight = 15; // Exact text height as requested
-    const padding = 5; // 5px padding on all sides
+    const fontSize = 30;
+    const textHeight = fontSize; // Text height matches font size
+    const padding = 10; // 10px padding on all sides (doubled with text size)
     const overlayPixelShiftUp = 13;
 
     // --- Set up Canvas for Text Measurement ---
     let fontFamily = 'Arial, sans-serif'; // Default fallback
     try {
-      const fontPath = path.join(__dirname, '..', 'fonts', 'RobotoCondensed-Bold.ttf');
-      GlobalFonts.registerFromPath(fontPath, 'Roboto Condensed Bold');
-      fontFamily = 'Roboto Condensed Bold, Arial, sans-serif';
+      const fontPath = path.join(__dirname, '..', 'fonts', 'RobotoCondensed-Regular.ttf');
+      GlobalFonts.registerFromPath(fontPath, 'Roboto Condensed');
+      fontFamily = 'Roboto Condensed, Arial, sans-serif';
       console.log('Custom font loaded successfully');
     } catch (error) {
       console.warn('Custom font failed to load, using fallback:', error.message);
@@ -145,8 +145,8 @@ exports.handler = async (event) => {
     const canvasContext = canvas.getContext('2d');
     
     // Set up canvas for text rendering with rounded corners
-    canvasContext.fillStyle = 'rgba(0, 0, 0, 0.95)';
-    const cornerRadius = 3; // Slightly rounded corners
+    canvasContext.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    const cornerRadius = 5; // 5px rounded corners
     
     // Draw rounded rectangle
     canvasContext.beginPath();
