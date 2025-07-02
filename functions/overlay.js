@@ -1,5 +1,6 @@
 const sharp = require('sharp');
 const { createCanvas } = require('canvas');
+const parser = require('lambda-multipart-parser');
 
 // Helper function to wrap text
 function wrapText(context, text, maxWidth) {
@@ -23,13 +24,32 @@ function wrapText(context, text, maxWidth) {
 
 exports.handler = async (event) => {
   try {
-    // Extract parameters from headers
-    const caption = event.headers['x-caption'] || '';
-    const brandColor = event.headers['x-brand-color'] || '#667eea';
-    const imageBuffer = Buffer.from(event.body, 'base64');
+    let caption, brandColor, imageBuffer;
+
+    // Check for multipart/form-data, typically from n8n
+    const contentType = event.headers['content-type'] || event.headers['Content-Type'];
+    if (contentType && contentType.includes('multipart/form-data')) {
+      const result = await parser.parse(event);
+      
+      const imageFile = result.files.find(f => f.fieldname === 'image' || f.fieldname === 'file');
+      
+      if (!imageFile) {
+        throw new Error('Image file not found in multipart form data. Please use field name \"image\" or \"file\".');
+      }
+
+      imageBuffer = imageFile.content;
+      caption = result.fields.caption || 'Default Caption';
+      brandColor = result.fields.brandColor || '#667eea';
+
+    } else {
+      // Fallback to original method (base64 body and headers)
+      caption = event.headers['x-caption'] || 'Default Caption';
+      brandColor = event.headers['x-brand-color'] || '#667eea';
+      imageBuffer = Buffer.from(event.body, 'base64');
+    }
 
     // Validate input
-    if (!event.body) {
+    if (!imageBuffer || imageBuffer.length === 0) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'No image data provided' })
