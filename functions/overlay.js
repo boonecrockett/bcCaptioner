@@ -1,6 +1,7 @@
 const sharp = require('sharp');
-const { createCanvas } = require('@napi-rs/canvas');
+const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const parser = require('lambda-multipart-parser');
+const path = require('path');
 
 // Helper function to wrap text
 function wrapText(context, text, maxWidth) {
@@ -37,19 +38,7 @@ exports.handler = async (event) => {
       }
 
       imageBuffer = imageFile.content;
-      const rawCaption = result.caption;
-      console.log('[DEBUG] Raw caption from parser:', rawCaption);
-      console.log('[DEBUG] Type of raw caption:', typeof rawCaption);
-
-      let decodedCaption = '';
-      if (rawCaption) {
-        decodedCaption = rawCaption.toString('utf-8');
-        console.log('[DEBUG] Decoded caption:', decodedCaption);
-      }
-
-      caption = decodedCaption || 'Default Caption';
-      console.log('[DEBUG] Final caption value:', caption);
-
+      caption = (result.caption && result.caption.toString('utf-8')) || 'Default Caption';
       brandColor = (result.brandColor && result.brandColor.toString('utf-8')) || '#667eea';
 
     } else {
@@ -84,8 +73,13 @@ exports.handler = async (event) => {
 
     // --- Set up Canvas for Text Measurement ---
     const canvas = createCanvas(200, 200); // Dummy canvas
+    // Register the font
+        // Register the font
+    const fontPath = path.join(__dirname, '..', 'fonts', 'RobotoCondensed-Bold.ttf');
+    GlobalFonts.registerFromPath(fontPath, 'Roboto Condensed Bold');
+
     const context = canvas.getContext('2d');
-    context.font = `bold ${fontSize}px "Arial Narrow"`;
+    context.font = `${fontSize}px "Roboto Condensed Bold"`;
 
     // --- Define Safe Zone and Wrap Text ---
     // The safe zone is the width of the square crop (628px) minus some padding
