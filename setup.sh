@@ -4,5 +4,5 @@
 # This script installs the system dependencies required by the canvas package.
 # Netlify's build environment is based on Ubuntu, so we use apt-get.
 
-apt-get update
-apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+sudo apt-get update
+sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
