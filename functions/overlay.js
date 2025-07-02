@@ -67,7 +67,7 @@ exports.handler = async (event) => {
     const fontSize = 15;
     const lineHeight = fontSize * 1.2; // For multi-line text
     const horizontalPadding = 11; // 11px on each side
-    const verticalPadding = 6; // 3px top, 3px bottom
+    const verticalPadding = 10; // 5px top, 5px bottom
     const topPadding = verticalPadding / 2;
     const overlayPixelShiftUp = 13;
 
@@ -82,13 +82,14 @@ exports.handler = async (event) => {
     context.font = `${fontSize}px "Roboto Condensed Bold"`;
 
     // --- Define Safe Zone and Wrap Text ---
-    // The safe zone is the width of the square crop (628px) minus some padding
-    const maxTextWidth = outputHeight - (horizontalPadding * 2);
+    // Set the maximum width for the text, leaving a margin on the sides of the image.
+    const maxTextWidth = outputWidth - 80 - (horizontalPadding * 2); // 40px margin on each side
     const lines = wrapText(context, caption, maxTextWidth);
 
     // --- Calculate Dynamic Box Dimensions ---
     const longestLineWidth = Math.max(...lines.map(line => context.measureText(line).width));
-    const boxWidth = longestLineWidth + (horizontalPadding * 2);
+    // Add generous padding to prevent clipping due to font rendering differences
+    const boxWidth = Math.ceil(longestLineWidth * 1.1) + (horizontalPadding * 2) + 40; // 10% safety margin + extra padding + 10px each side
 
     // Calculate box height based on the number of lines and line height, plus padding.
     const boxHeight = (lines.length * lineHeight) + verticalPadding;
@@ -110,7 +111,7 @@ exports.handler = async (event) => {
           dominant-baseline="middle"
           text-anchor="middle"
           fill="#FFFFFF"
-          font-family="Arial Narrow, sans-serif"
+          font-family="Roboto Condensed Bold"
           font-size="${fontSize}"
           font-weight="bold"
         >

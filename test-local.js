@@ -22,7 +22,7 @@ async function testOverlay() {
     const mockEvent = {
       body: base64Image,
       headers: {
-        'x-caption': 'Test Caption for Instagram Post',
+        'x-caption': 'This is a medium length caption that should show how the background resizes',
         'x-brand-color': '#667eea'
       }
     };
