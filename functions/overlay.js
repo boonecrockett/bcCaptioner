@@ -317,11 +317,25 @@ exports.handler = async (event) => {
       console.log(`[DEBUG] Canvas globalAlpha:`, canvasContext.globalAlpha);
       
       try {
-        // Force render without measurement validation
+        // Try multiple rendering approaches since fillText is broken on server
+        console.log(`[DEBUG] Attempting fillText rendering...`);
         canvasContext.fillText(line, boxCenterX, yPosition);
-        console.log(`[DEBUG] Line ${index + 1} rendered (forced)`);
         
-        // Check if pixels actually changed after rendering
+        // Also try strokeText as backup
+        console.log(`[DEBUG] Attempting strokeText rendering...`);
+        canvasContext.strokeStyle = 'white';
+        canvasContext.lineWidth = 1;
+        canvasContext.strokeText(line, boxCenterX, yPosition);
+        
+        // Try fillText again with explicit font setting
+        console.log(`[DEBUG] Attempting fillText with explicit font reset...`);
+        canvasContext.font = '30px Arial';
+        canvasContext.fillStyle = 'white';
+        canvasContext.fillText(line, boxCenterX, yPosition);
+        
+        console.log(`[DEBUG] Line ${index + 1} multiple render attempts completed`);
+        
+        // Check if any pixels actually changed after rendering
         try {
           const imageData = canvasContext.getImageData(boxCenterX - 50, yPosition, 100, fontSize);
           const pixels = imageData.data;
@@ -329,7 +343,11 @@ exports.handler = async (event) => {
           for (let i = 3; i < pixels.length; i += 4) { // Check alpha channel
             if (pixels[i] > 0) nonTransparentPixels++;
           }
-          console.log(`[DEBUG] Line ${index + 1} non-transparent pixels:`, nonTransparentPixels);
+          console.log(`[DEBUG] Line ${index + 1} actual non-transparent pixels:`, nonTransparentPixels);
+          
+          if (nonTransparentPixels === 0) {
+            console.error(`[ERROR] Line ${index + 1} Canvas text rendering completely failed - no pixels drawn`);
+          }
         } catch (pixelError) {
           console.log(`[DEBUG] Could not check pixels:`, pixelError.message);
         }
