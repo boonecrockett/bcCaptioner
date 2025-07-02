@@ -10,11 +10,11 @@
     "start:dev": "nodemon test-server.js"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.73",
     "express": "^5.1.0",
     "lambda-multipart-parser": "^1.0.1",
     "multer": "^2.0.1",
-    "sharp": "^0.33.1",
-    "skia-canvas": "^2.0.2"
+    "sharp": "^0.33.1"
   },
   "devDependencies": {
     "netlify-cli": "^17.0.0",
