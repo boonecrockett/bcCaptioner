@@ -30,17 +30,15 @@ exports.handler = async (event) => {
     const contentType = event.headers['content-type'] || event.headers['Content-Type'];
     if (contentType && contentType.includes('multipart/form-data')) {
       const result = await parser.parse(event);
-      console.log('[DEBUG] Parsed multipart data:', JSON.stringify(result, null, 2));
-      
       const imageFile = result.files.find(f => f.fieldname === 'image' || f.fieldname === 'file');
       
       if (!imageFile) {
-        throw new Error('Image file not found in multipart form data. Please use field name \"image\" or \"file\".');
+        throw new Error('Image file not found in multipart form data. Please use field name "image" or "file".');
       }
 
       imageBuffer = imageFile.content;
-      caption = (result.fields && result.fields.caption) ? result.fields.caption : 'Default Caption';
-      brandColor = (result.fields && result.fields.brandColor) ? result.fields.brandColor : '#667eea';
+      caption = result.caption || 'Default Caption';
+      brandColor = result.brandColor || '#667eea';
 
     } else {
       // Fallback to original method (base64 body and headers)
