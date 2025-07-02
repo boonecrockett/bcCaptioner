@@ -230,171 +230,42 @@ exports.handler = async (event) => {
     console.log(`[DEBUG] Image dimensions: ${outputWidth}x${outputHeight}px`);
     console.log(`[DEBUG] Overlay boundaries check: boxLeft=${boxLeft}, boxTop=${boxTop}, boxRight=${boxLeft + boxWidth}, boxBottom=${boxTop + boxHeight}`);
 
-    // --- Create Full-Size Canvas Overlay (avoids Sharp composite dimension issues) ---
-    console.log(`[DEBUG] Creating full-size overlay canvas: ${outputWidth}x${outputHeight}`);
-    const canvas = createCanvas(outputWidth, outputHeight);
-    const canvasContext = canvas.getContext('2d');
+    // Canvas text rendering is completely broken on server - switch to Sharp-based SVG text
+    console.log(`[DEBUG] Canvas text rendering failed on server, switching to Sharp-based SVG overlay`);
     
-    // Make canvas transparent
-    canvasContext.clearRect(0, 0, outputWidth, outputHeight);
+    // Create text overlay using Sharp SVG (more reliable on server)
+    const textTop = boxTop + padding - 6; // Move text up 6 pixels
+    const textLines = lines.map((line, index) => {
+      const yPosition = textTop + (index * (fontSize + 2)) + fontSize; // Adjust for SVG baseline
+      return `<text x="${boxLeft + (boxWidth / 2)}" y="${yPosition}" 
+                    font-family="Arial, sans-serif" 
+                    font-size="${fontSize}" 
+                    fill="white" 
+                    text-anchor="middle" 
+                    dominant-baseline="text-before-edge">${line}</text>`;
+    }).join('\n');
     
-    // Set up canvas for text rendering with rounded corners at calculated position
-    canvasContext.fillStyle = 'rgba(0, 0, 0, 0.85)';
-    const cornerRadius = 5; // 5px rounded corners
+    const svgOverlay = `
+      <svg width="${outputWidth}" height="${outputHeight}" xmlns="http://www.w3.org/2000/svg">
+        <!-- Background box with rounded corners -->
+        <rect x="${boxLeft}" y="${boxTop}" width="${boxWidth}" height="${boxHeight}" 
+              fill="rgba(0,0,0,0.85)" rx="5" ry="5"/>
+        <!-- Text lines -->
+        ${textLines}
+      </svg>
+    `;
     
-    // Draw rounded rectangle at the calculated position
-    canvasContext.beginPath();
-    canvasContext.roundRect(boxLeft, boxTop, boxWidth, boxHeight, cornerRadius);
-    canvasContext.fill();
-    
-    // Set up text rendering with comprehensive debugging
-    console.log(`[DEBUG] Setting up Canvas text rendering...`);
-    console.log(`[DEBUG] Canvas context available:`, !!canvasContext);
-    console.log(`[DEBUG] Lines to render:`, lines.length, lines);
-    
-    canvasContext.fillStyle = 'white';
-    console.log(`[DEBUG] Fill style set to: white`);
-    
-    // Canvas measureText is broken on server, so force font rendering without validation
-    console.log(`[DEBUG] Server Canvas measureText is broken, forcing font rendering`);
-    
-    const fontOptions = [
-      `${fontSize}px "Roboto Condensed", Arial, sans-serif`,
-      `${fontSize}px Arial, sans-serif`,
-      `${fontSize}px sans-serif`
-    ];
-    
-    // Try each font but don't rely on measurement validation
-    let selectedFont = fontOptions[0]; // Default to first option
-    
-    for (const fontOption of fontOptions) {
-      canvasContext.font = fontOption;
-      console.log(`[DEBUG] Setting font (no validation):`, fontOption);
-      
-      try {
-        const testMeasure = canvasContext.measureText('Test');
-        console.log(`[DEBUG] Font measurement (broken):`, testMeasure.width);
-        
-        // Don't validate measurement, just use the font
-        selectedFont = fontOption;
-        console.log(`[DEBUG] Using font regardless of measurement:`, fontOption);
-        break;
-      } catch (fontError) {
-        console.error(`[ERROR] Font failed completely:`, fontError.message);
-        // Continue to next font
-      }
-    }
-    
-    console.log(`[DEBUG] Final font (forced):`, selectedFont);
-    
-    canvasContext.textAlign = 'center';
-    canvasContext.textBaseline = 'top';
-    console.log(`[DEBUG] Text align: center, baseline: top`);
-    console.log(`[DEBUG] Final font selected:`, selectedFont);
-    
-    // Test basic text rendering first
-    console.log(`[DEBUG] Testing basic text rendering...`);
-    canvasContext.fillStyle = 'red';
-    canvasContext.font = '20px Arial';
-    canvasContext.fillText('TEST', 100, 100);
-    console.log(`[DEBUG] Basic test text rendered at 100,100`);
-    
-    // Reset for actual text rendering
-    canvasContext.fillStyle = 'white';
-    canvasContext.font = selectedFont;
-    
-    // Render text lines centered within the box
-    const boxCenterX = boxLeft + (boxWidth / 2);
-    console.log(`[DEBUG] Box center X position:`, boxCenterX);
-    
-    lines.forEach((line, index) => {
-      const yPosition = boxTop + padding + (index * (fontSize + 2)); // 2px line spacing
-      console.log(`[DEBUG] Rendering line ${index + 1} at x=${boxCenterX}, y=${yPosition}: "${line}"`);
-      
-      // Check Canvas state before rendering
-      console.log(`[DEBUG] Canvas fillStyle before render:`, canvasContext.fillStyle);
-      console.log(`[DEBUG] Canvas font before render:`, canvasContext.font);
-      console.log(`[DEBUG] Canvas globalAlpha:`, canvasContext.globalAlpha);
-      
-      try {
-        // Try multiple rendering approaches since fillText is broken on server
-        console.log(`[DEBUG] Attempting fillText rendering...`);
-        canvasContext.fillText(line, boxCenterX, yPosition);
-        
-        // Also try strokeText as backup
-        console.log(`[DEBUG] Attempting strokeText rendering...`);
-        canvasContext.strokeStyle = 'white';
-        canvasContext.lineWidth = 1;
-        canvasContext.strokeText(line, boxCenterX, yPosition);
-        
-        // Try fillText again with explicit font setting
-        console.log(`[DEBUG] Attempting fillText with explicit font reset...`);
-        canvasContext.font = '30px Arial';
-        canvasContext.fillStyle = 'white';
-        canvasContext.fillText(line, boxCenterX, yPosition);
-        
-        console.log(`[DEBUG] Line ${index + 1} multiple render attempts completed`);
-        
-        // Check if any pixels actually changed after rendering
-        try {
-          const imageData = canvasContext.getImageData(boxCenterX - 50, yPosition, 100, fontSize);
-          const pixels = imageData.data;
-          let nonTransparentPixels = 0;
-          for (let i = 3; i < pixels.length; i += 4) { // Check alpha channel
-            if (pixels[i] > 0) nonTransparentPixels++;
-          }
-          console.log(`[DEBUG] Line ${index + 1} actual non-transparent pixels:`, nonTransparentPixels);
-          
-          if (nonTransparentPixels === 0) {
-            console.error(`[ERROR] Line ${index + 1} Canvas text rendering completely failed - no pixels drawn`);
-          }
-        } catch (pixelError) {
-          console.log(`[DEBUG] Could not check pixels:`, pixelError.message);
-        }
-        
-      } catch (renderError) {
-        console.error(`[ERROR] Failed to render line ${index + 1}:`, renderError.message);
-        console.log(`[DEBUG] Line ${index + 1} render failed completely`);
-      }
-    });
-    
-    console.log(`[DEBUG] All text rendering attempts completed`);
-    
-    // Debug Canvas state before buffer conversion
-    console.log(`[DEBUG] Canvas dimensions before buffer:`, canvas.width, 'x', canvas.height);
-    
-    // Check if Canvas has any content at all
-    try {
-      const testImageData = canvasContext.getImageData(0, 0, 100, 100);
-      let totalPixels = 0;
-      for (let i = 3; i < testImageData.data.length; i += 4) {
-        if (testImageData.data[i] > 0) totalPixels++;
-      }
-      console.log(`[DEBUG] Canvas top-left 100x100 non-transparent pixels:`, totalPixels);
-    } catch (canvasError) {
-      console.log(`[DEBUG] Could not check Canvas content:`, canvasError.message);
-    }
-    
-    // Convert overlay canvas to buffer
-    console.log(`[DEBUG] Converting Canvas to buffer...`);
-    const overlayBuffer = canvas.toBuffer('image/png');
-    console.log(`[DEBUG] Full-size overlay buffer created:`, overlayBuffer.length, 'bytes');
-    
-    // Check if buffer is valid
-    if (overlayBuffer.length < 1000) {
-      console.error(`[ERROR] Overlay buffer suspiciously small:`, overlayBuffer.length, 'bytes');
-      console.log(`[DEBUG] Buffer first 50 bytes:`, overlayBuffer.slice(0, 50));
-    }
-    
-    console.log(`[DEBUG] Text lines: ${lines.length}`);
-    console.log(`[DEBUG] Lines content:`, lines);
-    console.log(`[DEBUG] Longest line width: ${longestLineWidth}px`);
-    console.log(`[DEBUG] Box dimensions: ${boxWidth}x${boxHeight}px`);
-    console.log(`[DEBUG] Text position: left=${boxLeft}, top=${boxTop + 4}`);
+    console.log(`[DEBUG] Created SVG overlay with ${lines.length} text lines`);
+    console.log(`[DEBUG] SVG dimensions: ${outputWidth}x${outputHeight}`);
+    console.log(`[DEBUG] Text box: ${boxLeft},${boxTop} ${boxWidth}x${boxHeight}`);
     console.log(`[DEBUG] Font family: ${fontFamily}`);
-    console.log(`[DEBUG] Canvas font: ${fontSize}px "${fontFamily.split(',')[0].replace(/"/g, '')}"`);
+    console.log(`[DEBUG] SVG font: ${fontSize}px Arial`);
     console.log(`[DEBUG] First line preview:`, lines[0] ? lines[0].substring(0, 50) : 'NO LINES');
-    console.log(`[DEBUG] Using Canvas rendering instead of SVG to avoid fontconfig issues`);
+    console.log(`[DEBUG] Using SVG rendering since Canvas text is broken on server`);
+    
+    // Convert SVG to buffer for Sharp composite
+    const overlayBuffer = Buffer.from(svgOverlay);
+    console.log(`[DEBUG] SVG overlay buffer created:`, overlayBuffer.length, 'bytes');
 
     // Process image: resize and composite single overlay
     let outputBuffer;
