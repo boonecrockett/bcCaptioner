@@ -241,22 +241,25 @@ exports.handler = async (event) => {
     let textBuffer;
     try {
         const textCanvas = createCanvas(textCanvasWidth, textCanvasHeight);
+        console.log(`[DEBUG] Canvas object created for text rendering`);
         const textContext = textCanvas.getContext('2d');
-        console.log(`[DEBUG] Text canvas created successfully`);
+        console.log(`[DEBUG] Text canvas context obtained successfully`);
         
         // Draw background box
         textContext.fillStyle = 'rgba(0, 0, 0, 0.85)';
         textContext.beginPath();
         textContext.roundRect(0, 0, textCanvasWidth - 1, textCanvasHeight - 1, 5);
         textContext.fill();
+        console.log(`[DEBUG] Background box drawn on text canvas`);
         
         // Draw text lines
         textContext.font = `${fontSize}px Arial`;
         textContext.textAlign = 'center';
         textContext.textBaseline = 'top';
         textContext.fillStyle = 'white';
+        console.log(`[DEBUG] Text context settings applied: font=${fontSize}px Arial`);
         
-        const textTop = padding - 10; // Adjusted for the smaller canvas (total 20px down from original)
+        const textTop = padding - 30; // Adjusted for the smaller canvas (total 40px up from original, previously -40 now -30 to move down 10px)
         lines.forEach((line, index) => {
             const yPosition = textTop + (index * fontSize * 1.2) + fontSize;
             const xPosition = textCanvasWidth / 2;
@@ -268,12 +271,22 @@ exports.handler = async (event) => {
                 .trim();
             
             console.log(`[DEBUG] Drawing line ${index + 1}: "${cleanedLine}" at (${xPosition}, ${yPosition}) on text canvas`);
-            textContext.fillText(cleanedLine, xPosition, yPosition);
+            try {
+                textContext.fillText(cleanedLine, xPosition, yPosition);
+                console.log(`[DEBUG] Line ${index + 1} text drawn successfully`);
+            } catch (drawError) {
+                console.error(`[DEBUG] Failed to draw text for line ${index + 1}:`, drawError);
+            }
         });
         
         // Convert text canvas to PNG buffer
-        textBuffer = textCanvas.toBuffer('image/png');
-        console.log(`[DEBUG] Text PNG buffer created:`, textBuffer.length, 'bytes');
+        try {
+            textBuffer = textCanvas.toBuffer('image/png');
+            console.log(`[DEBUG] Text PNG buffer created:`, textBuffer.length, 'bytes');
+        } catch (bufferError) {
+            console.error(`[CRITICAL] Failed to convert canvas to PNG buffer:`, bufferError);
+            throw new Error('Buffer conversion failed');
+        }
     } catch (textCanvasError) {
         console.error(`[CRITICAL] Text canvas rendering failed:`, textCanvasError);
         // Fallback to minimal SVG if canvas fails
@@ -297,6 +310,7 @@ exports.handler = async (event) => {
         const svgOverlay = `<svg width="${outputWidth}" height="${outputHeight}" xmlns="http://www.w3.org/2000/svg">
             <rect x="${boxLeft}" y="${boxTop}" width="${boxWidth}" height="${boxHeight}" fill="rgba(0,0,0,0.85)" rx="5" ry="5"/>
             ${textElements}
+            <text x="${boxLeft + (boxWidth / 2)}" y="${boxTop + (boxHeight / 2)}" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="red" text-anchor="middle" dominant-baseline="middle">[CANVAS FAILED]</text>
         </svg>`;
         textBuffer = Buffer.from(svgOverlay);
         console.log(`[FALLBACK] Created fallback SVG buffer:`, textBuffer.length, 'bytes');
