@@ -289,31 +289,33 @@ exports.handler = async (event) => {
         }
     } catch (textCanvasError) {
         console.error(`[CRITICAL] Text canvas rendering failed:`, textCanvasError);
-        // Fallback to minimal SVG if canvas fails
-        console.log(`[FALLBACK] Falling back to minimal SVG overlay`);
-        let textElements = '';
-        const textTop = boxTop + padding - 10; // Adjusted position
-        lines.forEach((line, index) => {
-            const yPosition = textTop + (index * fontSize * 1.2) + fontSize;
-            const xPosition = boxLeft + (boxWidth / 2);
-            const cleanedLine = line
-                .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-                .replace(/[^\x20-\x7E\u00A0-\uFFFF]/g, '')
-                .trim()
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-            textElements += `<text x="${xPosition}" y="${yPosition}" font-family="Arial, Helvetica, 'DejaVu Sans', sans-serif" font-size="${fontSize}" fill="white" text-anchor="middle">${cleanedLine}</text>`;
-        });
-        const svgOverlay = `<svg width="${outputWidth}" height="${outputHeight}" xmlns="http://www.w3.org/2000/svg">
-            <rect x="${boxLeft}" y="${boxTop}" width="${boxWidth}" height="${boxHeight}" fill="rgba(0,0,0,0.85)" rx="5" ry="5"/>
-            ${textElements}
-            <text x="${boxLeft + (boxWidth / 2)}" y="${boxTop + (boxHeight / 2)}" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="red" text-anchor="middle" dominant-baseline="middle">[CANVAS FAILED]</text>
-        </svg>`;
-        textBuffer = Buffer.from(svgOverlay);
-        console.log(`[FALLBACK] Created fallback SVG buffer:`, textBuffer.length, 'bytes');
+        // Fallback to a pure Sharp-based approach with a placeholder image
+        console.log(`[FALLBACK] Falling back to pure Sharp-based placeholder overlay (no Canvas or SVG text)`);
+        
+        // Create a simple black box with a placeholder message using Sharp directly
+        try {
+            textBuffer = await sharp({
+                create: {
+                    width: textCanvasWidth,
+                    height: textCanvasHeight,
+                    channels: 4,
+                    background: { r: 0, g: 0, b: 0, alpha: 0.85 }
+                }
+            })
+            .png()
+            .toBuffer();
+            console.log(`[FALLBACK] Created Sharp-based placeholder buffer:`, textBuffer.length, 'bytes');
+        } catch (sharpError) {
+            console.error(`[CRITICAL] Sharp placeholder creation failed:`, sharpError);
+            // Last resort: minimal SVG with error message
+            console.log(`[LAST RESORT FALLBACK] Falling back to minimal SVG overlay`);
+            const svgOverlay = `<svg width="${outputWidth}" height="${outputHeight}" xmlns="http://www.w3.org/2000/svg">
+                <rect x="${boxLeft}" y="${boxTop}" width="${boxWidth}" height="${boxHeight}" fill="rgba(0,0,0,0.85)" rx="5" ry="5"/>
+                <text x="${boxLeft + (boxWidth / 2)}" y="${boxTop + (boxHeight / 2)}" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="red" text-anchor="middle" dominant-baseline="middle">[TEXT RENDERING FAILED]</text>
+            </svg>`;
+            textBuffer = Buffer.from(svgOverlay);
+            console.log(`[LAST RESORT FALLBACK] Created minimal SVG buffer:`, textBuffer.length, 'bytes');
+        }
     }
     
     // Use Sharp to composite the text PNG onto the main image
