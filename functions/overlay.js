@@ -146,6 +146,16 @@ exports.handler = async (event) => {
     const boxTop = Math.round(outputHeight - boxHeight - overlayPixelShiftUp);
     
     // Text is positioned with the box
+    console.log(`[DEBUG] Text lines: ${lines.length}`);
+    console.log(`[DEBUG] Lines content:`, lines);
+    console.log(`[DEBUG] Longest line width: ${longestLineWidth}px`);
+    console.log(`[DEBUG] Box dimensions: ${boxWidth}x${boxHeight}px`);
+    console.log(`[DEBUG] Box position: left=${boxLeft}, top=${boxTop}`);
+    console.log(`[DEBUG] Text position: left=${boxLeft}, top=${boxTop + 4}`);
+    console.log(`[DEBUG] Font family: ${fontFamily}`);
+    console.log(`[DEBUG] Text Y position: ${textY}`);
+    console.log(`[DEBUG] Text SVG preview:`, textSvg.substring(0, 200) + '...');
+
     const textLeft = boxLeft;
     const textTop = boxTop + 4; // Manual vertical adjustment
 
