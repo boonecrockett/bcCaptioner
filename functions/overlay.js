@@ -255,43 +255,42 @@ exports.handler = async (event) => {
     canvasContext.fillStyle = 'white';
     console.log(`[DEBUG] Fill style set to: white`);
     
-    // Try multiple font approaches for server compatibility
-    let workingFont = null;
+    // Canvas measureText is broken on server, so force font rendering without validation
+    console.log(`[DEBUG] Server Canvas measureText is broken, forcing font rendering`);
+    
     const fontOptions = [
       `${fontSize}px "Roboto Condensed", Arial, sans-serif`,
-      `${fontSize}px "RobotoCondensed-Regular", Arial, sans-serif`,
       `${fontSize}px Arial, sans-serif`,
       `${fontSize}px sans-serif`
     ];
     
+    // Try each font but don't rely on measurement validation
+    let selectedFont = fontOptions[0]; // Default to first option
+    
     for (const fontOption of fontOptions) {
       canvasContext.font = fontOption;
-      console.log(`[DEBUG] Testing font:`, fontOption);
+      console.log(`[DEBUG] Setting font (no validation):`, fontOption);
       
       try {
         const testMeasure = canvasContext.measureText('Test');
-        console.log(`[DEBUG] Font measurement result:`, testMeasure.width);
+        console.log(`[DEBUG] Font measurement (broken):`, testMeasure.width);
         
-        if (testMeasure.width > 5) { // Valid measurement
-          workingFont = fontOption;
-          console.log(`[DEBUG] Font working:`, fontOption);
-          break;
-        }
+        // Don't validate measurement, just use the font
+        selectedFont = fontOption;
+        console.log(`[DEBUG] Using font regardless of measurement:`, fontOption);
+        break;
       } catch (fontError) {
-        console.error(`[ERROR] Font test failed for ${fontOption}:`, fontError.message);
+        console.error(`[ERROR] Font failed completely:`, fontError.message);
+        // Continue to next font
       }
     }
     
-    if (!workingFont) {
-      workingFont = `${fontSize}px Arial`;
-      canvasContext.font = workingFont;
-      console.log(`[DEBUG] Using final fallback font:`, workingFont);
-    }
+    console.log(`[DEBUG] Final font (forced):`, selectedFont);
     
     canvasContext.textAlign = 'center';
     canvasContext.textBaseline = 'top';
     console.log(`[DEBUG] Text align: center, baseline: top`);
-    console.log(`[DEBUG] Final font selected:`, workingFont);
+    console.log(`[DEBUG] Final font selected:`, selectedFont);
     
     // Render text lines centered within the box
     const boxCenterX = boxLeft + (boxWidth / 2);
@@ -302,14 +301,12 @@ exports.handler = async (event) => {
       console.log(`[DEBUG] Rendering line ${index + 1} at x=${boxCenterX}, y=${yPosition}: "${line}"`);
       
       try {
+        // Force render without measurement validation
         canvasContext.fillText(line, boxCenterX, yPosition);
-        console.log(`[DEBUG] Line ${index + 1} rendered successfully`);
+        console.log(`[DEBUG] Line ${index + 1} rendered (forced)`);
       } catch (renderError) {
         console.error(`[ERROR] Failed to render line ${index + 1}:`, renderError.message);
-        // Try simple fallback rendering
-        canvasContext.font = `${fontSize}px Arial`;
-        canvasContext.fillText(line, boxCenterX, yPosition);
-        console.log(`[DEBUG] Line ${index + 1} rendered with fallback font`);
+        console.log(`[DEBUG] Line ${index + 1} render failed completely`);
       }
     });
     
