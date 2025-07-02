@@ -1,5 +1,5 @@
 const sharp = require('sharp');
-const { createCanvas } = require('canvas');
+const { Canvas } = require('skia-canvas');
 const parser = require('lambda-multipart-parser');
 
 // Helper function to wrap text
@@ -72,7 +72,7 @@ exports.handler = async (event) => {
     const overlayPixelShiftUp = 13;
 
     // --- Set up Canvas for Text Measurement ---
-    const canvas = createCanvas(200, 200); // Dummy canvas
+    const canvas = new Canvas(200, 200); // Dummy canvas
     const context = canvas.getContext('2d');
     context.font = `bold ${fontSize}px "Arial Narrow"`;
 
