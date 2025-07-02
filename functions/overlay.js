@@ -65,15 +65,11 @@ exports.handler = async (event) => {
 
     // --- Text and Box Styling ---
     const fontSize = 15;
-    const lineHeight = fontSize * 1.2; // For multi-line text
-    const horizontalPadding = -14; // Added 3px back to width (6px total, 3px on each side)
-    const verticalPadding = 10; // 5px top, 5px bottom
-    const topPadding = verticalPadding / 2;
+    const textHeight = 15; // Exact text height as requested
+    const padding = 5; // 5px padding on all sides
     const overlayPixelShiftUp = 13;
 
     // --- Set up Canvas for Text Measurement ---
-    const canvas = createCanvas(200, 200); // Dummy canvas
-    // Register the font with error handling
     let fontFamily = 'Arial, sans-serif'; // Default fallback
     try {
       const fontPath = path.join(__dirname, '..', 'fonts', 'RobotoCondensed-Bold.ttf');
@@ -84,16 +80,17 @@ exports.handler = async (event) => {
       console.warn('Custom font failed to load, using fallback:', error.message);
     }
 
-    const context = canvas.getContext('2d');
-    context.font = `${fontSize}px "${fontFamily}"`;
+    const measureCanvas = createCanvas(200, 100);
+    const measureContext = measureCanvas.getContext('2d');
+    measureContext.font = `${fontSize}px "${fontFamily.split(',')[0].replace(/"/g, '')}"`;
 
     // --- Define Safe Zone and Wrap Text ---
     // Set the maximum width for the text, leaving a margin on the sides of the image.
-    const maxTextWidth = outputWidth - 80 - (horizontalPadding * 2); // 40px margin on each side
-    const lines = wrapText(context, caption, maxTextWidth);
+    const maxTextWidth = outputWidth - 100; // Leave margin for centering
+    const lines = wrapText(measureContext, caption, maxTextWidth);
 
-    // --- Calculate Dynamic Box Dimensions ---
-    let longestLineWidth = Math.max(...lines.map(line => context.measureText(line).width));
+    // --- Calculate Exact Box Dimensions ---
+    let longestLineWidth = Math.max(...lines.map(line => measureContext.measureText(line).width));
     
     // Fallback for server measurement issues
     if (longestLineWidth < 10 || isNaN(longestLineWidth)) {
@@ -103,54 +100,43 @@ exports.handler = async (event) => {
         console.log(`[FALLBACK] Estimated width: ${longestLineWidth}px for ${longestLine.length} characters`);
     }
     
-    // Add generous padding to prevent clipping due to font rendering differences
-    const boxWidth = Math.ceil(longestLineWidth * 1.1) + (horizontalPadding * 2) + 40; // 10% safety margin + extra padding + 10px each side
+    // Exact box sizing: text width + 5px padding on each side
+    const boxWidth = Math.ceil(longestLineWidth) + (padding * 2); // 5px left + 5px right
 
-    // Calculate box height based on the number of lines and line height, plus padding.
-    const boxHeight = (lines.length * lineHeight) + verticalPadding;
+    // Exact box height: text height + 5px padding on top and bottom
+    const boxHeight = textHeight + (padding * 2); // 5px top + 5px bottom
 
-    // Calculate the Y position for the text to be vertically centered.
-    // This positions the vertical center of the first line of text.
-    const textY = topPadding + (lineHeight / 2) + 5; // Move text down 5px (4px + 1px additional)
-
-    // --- Create Combined Background and Text SVG ---
-    const textElements = lines.map((line, index) => 
-        `<tspan x="50%" dy="${index === 0 ? 0 : lineHeight}px">${line}</tspan>`
-    ).join('');
-
-    const combinedSvg = `
-      <svg width="${boxWidth}" height="${boxHeight}">
-        <!-- Background Box -->
-        <rect
-          x="0"
-          y="0"
-          width="${boxWidth}"
-          height="${boxHeight}"
-          rx="5"
-          ry="5"
-          style="fill:#000000;fill-opacity:0.95;"
-        />
-        <!-- Text -->
-        <text
-          x="50%"
-          y="${textY}"
-          dominant-baseline="middle"
-          text-anchor="middle"
-          fill="#FFFFFF"
-          font-family="${fontFamily}"
-          font-size="${fontSize}"
-          font-weight="bold"
-        >
-          ${textElements}
-        </text>
-      </svg>
-    `;
-
-    // --- Calculate final positions ---
+    // Calculate final positions
     const boxLeft = Math.round((outputWidth - boxWidth) / 2);
     const boxTop = Math.round(outputHeight - boxHeight - overlayPixelShiftUp);
+
+    // --- Create Canvas-based Text Overlay (more reliable than SVG on server) ---
+    const canvas = createCanvas(boxWidth, boxHeight);
+    const canvasContext = canvas.getContext('2d');
     
-    // Text is positioned with the box
+    // Set up canvas for text rendering with rounded corners
+    canvasContext.fillStyle = 'rgba(0, 0, 0, 0.95)';
+    const cornerRadius = 3; // Slightly rounded corners
+    
+    // Draw rounded rectangle
+    canvasContext.beginPath();
+    canvasContext.roundRect(0, 0, boxWidth, boxHeight, cornerRadius);
+    canvasContext.fill();
+    
+    // Configure text rendering
+    canvasContext.fillStyle = 'white';
+    canvasContext.font = `${fontSize}px "${fontFamily.split(',')[0].replace(/"/g, '')}"`;
+    canvasContext.textAlign = 'center';
+    canvasContext.textBaseline = 'middle';
+    
+    // Draw text exactly in the center of the box (5px padding accounted for)
+    const textX = boxWidth / 2;
+    const textY = (boxHeight / 2) - 1; // Move text up by 1 pixel
+    canvasContext.fillText(lines[0], textX, textY); // Single line for now
+    
+    // Convert canvas to buffer
+    const overlayBuffer = canvas.toBuffer('image/png');
+    
     console.log(`[DEBUG] Text lines: ${lines.length}`);
     console.log(`[DEBUG] Lines content:`, lines);
     console.log(`[DEBUG] Longest line width: ${longestLineWidth}px`);
@@ -158,15 +144,9 @@ exports.handler = async (event) => {
     console.log(`[DEBUG] Box position: left=${boxLeft}, top=${boxTop}`);
     console.log(`[DEBUG] Text position: left=${boxLeft}, top=${boxTop + 4}`);
     console.log(`[DEBUG] Font family: ${fontFamily}`);
-    console.log(`[DEBUG] Text Y position: ${textY}`);
-    console.log(`[DEBUG] Text elements:`, textElements);
-    console.log(`[DEBUG] Combined SVG preview:`, combinedSvg.substring(0, 400) + '...');
-    console.log(`[DEBUG] SVG text element details: x=50%, y=${textY}, font=${fontFamily}, size=${fontSize}`);
+    console.log(`[DEBUG] Canvas font: ${fontSize}px "${fontFamily.split(',')[0].replace(/"/g, '')}"`);
     console.log(`[DEBUG] First line preview:`, lines[0] ? lines[0].substring(0, 50) : 'NO LINES');
-    
-    // Test simple SVG text rendering
-    const testSvg = `<svg width="200" height="50"><text x="10" y="25" fill="white" font-family="Arial" font-size="16">TEST</text></svg>`;
-    console.log(`[DEBUG] Simple SVG test:`, testSvg);
+    console.log(`[DEBUG] Using Canvas rendering instead of SVG to avoid fontconfig issues`);
 
     // Process image: resize and composite single overlay
     const outputBuffer = await sharp(imageBuffer)
@@ -175,14 +155,8 @@ exports.handler = async (event) => {
         position: 'center',
         withoutEnlargement: false
       })
-      .composite([
-        { input: Buffer.from(combinedSvg), top: boxTop, left: boxLeft }
-      ])
-      .jpeg({ 
-        quality: 100,
-        progressive: true,
-        mozjpeg: true
-      })
+      .composite([{ input: overlayBuffer, left: boxLeft, top: boxTop }])
+      .jpeg({ quality: 100 })
       .toBuffer();
 
     console.log(`Output image size: ${outputBuffer.length} bytes`);
