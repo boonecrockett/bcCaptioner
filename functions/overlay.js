@@ -136,9 +136,17 @@ exports.handler = async (event) => {
     // Exact box height: text height + 5px padding on top and bottom
     const boxHeight = textHeight + (padding * 2); // 5px top + 5px bottom
 
-    // Calculate final positions
-    const boxLeft = Math.round((outputWidth - boxWidth) / 2);
-    const boxTop = Math.round(outputHeight - boxHeight - overlayPixelShiftUp);
+    // Calculate final positions with boundary checking
+    let boxLeft = Math.round((outputWidth - boxWidth) / 2);
+    let boxTop = Math.round(outputHeight - boxHeight - overlayPixelShiftUp);
+    
+    // Ensure overlay stays within image boundaries
+    boxLeft = Math.max(0, Math.min(boxLeft, outputWidth - boxWidth));
+    boxTop = Math.max(0, Math.min(boxTop, outputHeight - boxHeight));
+    
+    // Additional debug logging for boundary checking
+    console.log(`[DEBUG] Image dimensions: ${outputWidth}x${outputHeight}px`);
+    console.log(`[DEBUG] Overlay boundaries check: boxLeft=${boxLeft}, boxTop=${boxTop}, boxRight=${boxLeft + boxWidth}, boxBottom=${boxTop + boxHeight}`);
 
     // --- Create Canvas-based Text Overlay (more reliable than SVG on server) ---
     const canvas = createCanvas(boxWidth, boxHeight);
@@ -179,15 +187,26 @@ exports.handler = async (event) => {
     console.log(`[DEBUG] Using Canvas rendering instead of SVG to avoid fontconfig issues`);
 
     // Process image: resize and composite single overlay
-    const outputBuffer = await sharp(imageBuffer)
-      .resize(outputWidth, outputHeight, { 
-        fit: 'cover', 
-        position: 'center',
-        withoutEnlargement: false
-      })
-      .composite([{ input: overlayBuffer, left: boxLeft, top: boxTop }])
-      .jpeg({ quality: 100 })
-      .toBuffer();
+    let outputBuffer;
+    try {
+      console.log(`[DEBUG] About to composite overlay: ${boxWidth}x${boxHeight} at position ${boxLeft},${boxTop} on ${outputWidth}x${outputHeight} image`);
+      outputBuffer = await sharp(imageBuffer)
+        .resize(outputWidth, outputHeight, { 
+          fit: 'cover', 
+          position: 'center',
+          withoutEnlargement: false
+        })
+        .composite([{ input: overlayBuffer, left: boxLeft, top: boxTop }])
+        .jpeg({ quality: 100 })
+        .toBuffer();
+      console.log(`[DEBUG] Composite operation successful, output size: ${outputBuffer.length} bytes`);
+    } catch (compositeError) {
+      console.error('[ERROR] Composite operation failed:', compositeError.message);
+      console.error('[ERROR] Overlay dimensions:', boxWidth, 'x', boxHeight);
+      console.error('[ERROR] Overlay position:', boxLeft, ',', boxTop);
+      console.error('[ERROR] Image dimensions:', outputWidth, 'x', outputHeight);
+      throw new Error(`Image processing failed: ${compositeError.message}`);
+    }
 
     console.log(`Output image size: ${outputBuffer.length} bytes`);
 
