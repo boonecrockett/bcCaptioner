@@ -93,7 +93,16 @@ exports.handler = async (event) => {
     const lines = wrapText(context, caption, maxTextWidth);
 
     // --- Calculate Dynamic Box Dimensions ---
-    const longestLineWidth = Math.max(...lines.map(line => context.measureText(line).width));
+    let longestLineWidth = Math.max(...lines.map(line => context.measureText(line).width));
+    
+    // Fallback for server measurement issues
+    if (longestLineWidth < 10 || isNaN(longestLineWidth)) {
+        console.warn('[FALLBACK] Text measurement failed, using character-based estimation');
+        const longestLine = lines.reduce((a, b) => a.length > b.length ? a : b, '');
+        longestLineWidth = longestLine.length * (fontSize * 0.6); // Rough character width estimation
+        console.log(`[FALLBACK] Estimated width: ${longestLineWidth}px for ${longestLine.length} characters`);
+    }
+    
     // Add generous padding to prevent clipping due to font rendering differences
     const boxWidth = Math.ceil(longestLineWidth * 1.1) + (horizontalPadding * 2) + 40; // 10% safety margin + extra padding + 10px each side
 
