@@ -2,8 +2,6 @@
   functions = "functions"
 
 [functions]
-  # Optimize for image processing
-  node_bundler = "esbuild"
   included_files = ["fonts/**"]
   
 [build.environment]
