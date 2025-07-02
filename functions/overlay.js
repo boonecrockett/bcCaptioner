@@ -159,7 +159,14 @@ exports.handler = async (event) => {
     console.log(`[DEBUG] Text position: left=${boxLeft}, top=${boxTop + 4}`);
     console.log(`[DEBUG] Font family: ${fontFamily}`);
     console.log(`[DEBUG] Text Y position: ${textY}`);
-    console.log(`[DEBUG] Combined SVG preview:`, combinedSvg.substring(0, 200) + '...');
+    console.log(`[DEBUG] Text elements:`, textElements);
+    console.log(`[DEBUG] Combined SVG preview:`, combinedSvg.substring(0, 400) + '...');
+    console.log(`[DEBUG] SVG text element details: x=50%, y=${textY}, font=${fontFamily}, size=${fontSize}`);
+    console.log(`[DEBUG] First line preview:`, lines[0] ? lines[0].substring(0, 50) : 'NO LINES');
+    
+    // Test simple SVG text rendering
+    const testSvg = `<svg width="200" height="50"><text x="10" y="25" fill="white" font-family="Arial" font-size="16">TEST</text></svg>`;
+    console.log(`[DEBUG] Simple SVG test:`, testSvg);
 
     // Process image: resize and composite single overlay
     const outputBuffer = await sharp(imageBuffer)
