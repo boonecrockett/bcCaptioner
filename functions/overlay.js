@@ -37,8 +37,8 @@ exports.handler = async (event) => {
       }
 
       imageBuffer = imageFile.content;
-      caption = result.caption ? result.caption.toString('utf-8') : 'Default Caption';
-      brandColor = result.brandColor ? result.brandColor.toString('utf-8') : '#667eea';
+      caption = (result.caption && result.caption.toString('utf-8')) || 'Default Caption';
+      brandColor = (result.brandColor && result.brandColor.toString('utf-8')) || '#667eea';
 
     } else {
       // Fallback to original method (base64 body and headers)
