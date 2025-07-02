@@ -66,7 +66,7 @@ exports.handler = async (event) => {
     // --- Text and Box Styling ---
     const fontSize = 15;
     const lineHeight = fontSize * 1.2; // For multi-line text
-    const horizontalPadding = 11; // 11px on each side
+    const horizontalPadding = -14; // Added 3px back to width (6px total, 3px on each side)
     const verticalPadding = 10; // 5px top, 5px bottom
     const topPadding = verticalPadding / 2;
     const overlayPixelShiftUp = 13;
@@ -102,15 +102,26 @@ exports.handler = async (event) => {
 
     // Calculate the Y position for the text to be vertically centered.
     // This positions the vertical center of the first line of text.
-    const textY = topPadding + (lineHeight / 2);
+    const textY = topPadding + (lineHeight / 2) + 5; // Move text down 5px (4px + 1px additional)
 
-    // --- Create Multi-line Text SVG ---
+    // --- Create Combined Background and Text SVG ---
     const textElements = lines.map((line, index) => 
         `<tspan x="50%" dy="${index === 0 ? 0 : lineHeight}px">${line}</tspan>`
     ).join('');
 
-    const textSvg = `
+    const combinedSvg = `
       <svg width="${boxWidth}" height="${boxHeight}">
+        <!-- Background Box -->
+        <rect
+          x="0"
+          y="0"
+          width="${boxWidth}"
+          height="${boxHeight}"
+          rx="5"
+          ry="5"
+          style="fill:#000000;fill-opacity:0.95;"
+        />
+        <!-- Text -->
         <text
           x="50%"
           y="${textY}"
@@ -123,21 +134,6 @@ exports.handler = async (event) => {
         >
           ${textElements}
         </text>
-      </svg>
-    `;
-
-    // --- Create Background Box SVG ---
-    const boxSvg = `
-      <svg width="${boxWidth}" height="${boxHeight}">
-        <rect
-          x="0"
-          y="0"
-          width="${boxWidth}"
-          height="${boxHeight}"
-          rx="5"
-          ry="5"
-          style="fill:#000000;fill-opacity:0.95;"
-        />
       </svg>
     `;
 
@@ -154,12 +150,9 @@ exports.handler = async (event) => {
     console.log(`[DEBUG] Text position: left=${boxLeft}, top=${boxTop + 4}`);
     console.log(`[DEBUG] Font family: ${fontFamily}`);
     console.log(`[DEBUG] Text Y position: ${textY}`);
-    console.log(`[DEBUG] Text SVG preview:`, textSvg.substring(0, 200) + '...');
+    console.log(`[DEBUG] Combined SVG preview:`, combinedSvg.substring(0, 200) + '...');
 
-    const textLeft = boxLeft;
-    const textTop = boxTop + 4; // Manual vertical adjustment
-
-    // Process image: resize and composite layers
+    // Process image: resize and composite single overlay
     const outputBuffer = await sharp(imageBuffer)
       .resize(outputWidth, outputHeight, { 
         fit: 'cover', 
@@ -167,8 +160,7 @@ exports.handler = async (event) => {
         withoutEnlargement: false
       })
       .composite([
-        { input: Buffer.from(boxSvg), top: boxTop, left: boxLeft },
-        { input: Buffer.from(textSvg), top: textTop, left: textLeft }
+        { input: Buffer.from(combinedSvg), top: boxTop, left: boxLeft }
       ])
       .jpeg({ 
         quality: 100,
