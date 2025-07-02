@@ -237,19 +237,29 @@ exports.handler = async (event) => {
     const textTop = boxTop + padding - 6; // Move text up 6 pixels
     const textLines = lines.map((line, index) => {
       const yPosition = textTop + (index * (fontSize + 2)) + fontSize; // Adjust for SVG baseline
-      // Escape text content to prevent control characters
-      const escapedLine = line
+      // Clean text content to remove all control characters and escape for SVG
+      const cleanedLine = line
+        // Remove all control characters (0-31 except tab, newline, carriage return)
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        // Remove any remaining non-printable characters
+        .replace(/[^\x20-\x7E\u00A0-\uFFFF]/g, '')
+        // Trim whitespace
+        .trim()
+        // HTML escape for SVG safety
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+      
+      console.log(`[DEBUG] Original line: "${line}"`);
+      console.log(`[DEBUG] Cleaned line: "${cleanedLine}"`);
       return `<text x="${boxLeft + (boxWidth / 2)}" y="${yPosition}" 
                     font-family="Arial, sans-serif" 
                     font-size="${fontSize}" 
                     fill="white" 
                     text-anchor="middle" 
-                    dominant-baseline="text-before-edge">${escapedLine}</text>`;
+                    dominant-baseline="text-before-edge">${cleanedLine}</text>`;
     }).join('\n');
     
     const svgOverlay = `
