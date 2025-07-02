@@ -2,8 +2,8 @@
   functions = "functions"
 
 [functions]
-  # Optimize for image processing
-  node_bundler = "esbuild"
+  # Use zisi bundler to handle native modules like @napi-rs/canvas
+  node_bundler = "zisi"
   included_files = ["fonts/**"]
   
 [build.environment]
