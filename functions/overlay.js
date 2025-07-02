@@ -73,12 +73,19 @@ exports.handler = async (event) => {
 
     // --- Set up Canvas for Text Measurement ---
     const canvas = createCanvas(200, 200); // Dummy canvas
-    // Register the font
-    const fontPath = path.join(__dirname, '..', 'fonts', 'RobotoCondensed-Bold.ttf');
-    GlobalFonts.registerFromPath(fontPath, 'Roboto Condensed Bold');
+    // Register the font with error handling
+    let fontFamily = 'Arial, sans-serif'; // Default fallback
+    try {
+      const fontPath = path.join(__dirname, '..', 'fonts', 'RobotoCondensed-Bold.ttf');
+      GlobalFonts.registerFromPath(fontPath, 'Roboto Condensed Bold');
+      fontFamily = 'Roboto Condensed Bold, Arial, sans-serif';
+      console.log('Custom font loaded successfully');
+    } catch (error) {
+      console.warn('Custom font failed to load, using fallback:', error.message);
+    }
 
     const context = canvas.getContext('2d');
-    context.font = `${fontSize}px "Roboto Condensed Bold"`;
+    context.font = `${fontSize}px "${fontFamily}"`;
 
     // --- Define Safe Zone and Wrap Text ---
     // Set the maximum width for the text, leaving a margin on the sides of the image.
@@ -110,7 +117,7 @@ exports.handler = async (event) => {
           dominant-baseline="middle"
           text-anchor="middle"
           fill="#FFFFFF"
-          font-family="Roboto Condensed Bold"
+          font-family="${fontFamily}"
           font-size="${fontSize}"
           font-weight="bold"
         >
