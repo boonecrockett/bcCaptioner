@@ -163,8 +163,8 @@ exports.handler = async (event) => {
     // Exact box sizing: text width + 5px padding on each side
     const boxWidth = Math.ceil(longestLineWidth) + (padding * 2); // 5px left + 5px right
 
-    // Exact box height: text height + 5px padding on top and bottom
-    const boxHeight = textHeight + (padding * 2); // 5px top + 5px bottom
+    // Exact box height: text height + 5px padding on top and bottom, reduced by 10px
+    const boxHeight = textHeight + (padding * 2) - 10; // 5px top + 5px bottom, minus 10px
 
     // Calculate final positions
     const boxLeft = Math.round((outputWidth - boxWidth) / 2);
@@ -196,7 +196,7 @@ exports.handler = async (event) => {
     
     // Draw text exactly in the center of the box (5px padding accounted for)
     const textX = boxWidth / 2;
-    const textY = (boxHeight / 2) - 1; // Move text up by 1 pixel
+    const textY = (boxHeight / 2) - 4; // Move text up by 4 pixels (1 + 3 additional)
     canvasContext.fillText(lines[0], textX, textY); // Single line for now
     
     // Convert canvas to buffer
