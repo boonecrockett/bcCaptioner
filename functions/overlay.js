@@ -236,7 +236,9 @@ exports.handler = async (event) => {
     // Create text overlay using Sharp SVG (more reliable on server)
     const textTop = boxTop + padding - 6; // Move text up 6 pixels
     const textLines = lines.map((line, index) => {
-      const yPosition = textTop + (index * (fontSize + 2)) + fontSize; // Adjust for SVG baseline
+      // Simpler line spacing calculation for better server compatibility
+      const yPosition = textTop + (index * fontSize * 1.2) + fontSize;
+      
       // Clean text content to remove all control characters and escape for SVG
       const cleanedLine = line
         // Remove all control characters (0-31 except tab, newline, carriage return)
@@ -252,33 +254,19 @@ exports.handler = async (event) => {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
       
-      console.log(`[DEBUG] Original line: "${line}"`);
-      console.log(`[DEBUG] Cleaned line: "${cleanedLine}"`);
-      return `<text x="${boxLeft + (boxWidth / 2)}" y="${yPosition}" class="overlay-text">${cleanedLine}</text>`;
+      console.log(`[DEBUG] Line ${index + 1}: "${line}"`);
+      console.log(`[DEBUG] Cleaned: "${cleanedLine}"`);
+      console.log(`[DEBUG] Y-position: ${yPosition}`);
+      
+      // Use simple inline SVG attributes instead of CSS classes
+      return `<text x="${boxLeft + (boxWidth / 2)}" y="${yPosition}" font-family="Arial,sans-serif" font-size="${fontSize}" fill="white" text-anchor="middle">${cleanedLine}</text>`;
     }).join('\n');
     
-    const svgOverlay = `<?xml version="1.0" encoding="UTF-8"?>
-      <svg width="${outputWidth}" height="${outputHeight}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <style type="text/css">
-            <![CDATA[
-              .overlay-text {
-                font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif;
-                font-size: ${fontSize}px;
-                fill: white;
-                text-anchor: middle;
-                dominant-baseline: text-before-edge;
-              }
-            ]]>
-          </style>
-        </defs>
-        <!-- Background box with rounded corners -->
-        <rect x="${boxLeft}" y="${boxTop}" width="${boxWidth}" height="${boxHeight}" 
-              fill="rgba(0,0,0,0.85)" rx="5" ry="5"/>
-        <!-- Text lines -->
+    // Simplified SVG without CSS for better server compatibility
+    const svgOverlay = `<svg width="${outputWidth}" height="${outputHeight}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="${boxLeft}" y="${boxTop}" width="${boxWidth}" height="${boxHeight}" fill="rgba(0,0,0,0.85)" rx="5" ry="5"/>
         ${textLines}
-      </svg>
-    `;
+      </svg>`;
     
     console.log(`[DEBUG] Created SVG overlay with ${lines.length} text lines`);
     console.log(`[DEBUG] SVG dimensions: ${outputWidth}x${outputHeight}`);
