@@ -196,7 +196,7 @@ exports.handler = async (event) => {
     
     // Draw text exactly in the center of the box (5px padding accounted for)
     const textX = boxWidth / 2;
-    const textY = (boxHeight / 2) - 4; // Move text up by 4 pixels (1 + 3 additional)
+    const textY = (boxHeight / 2) - 2; // Move text up by 2 pixels (was 4, now moved down 2)
     canvasContext.fillText(lines[0], textX, textY); // Single line for now
     
     // Convert canvas to buffer
