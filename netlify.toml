@@ -1,5 +1,6 @@
 [build]
-functions = "functions"
+  command = "./setup.sh && npm install"
+  functions = "functions"
 
 [functions]
   # Optimize for image processing
