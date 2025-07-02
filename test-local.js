@@ -22,7 +22,7 @@ async function testOverlay() {
     const mockEvent = {
       body: base64Image,
       headers: {
-        'x-caption': 'Vermont State Big Game Records',
+        'x-caption': 'Melissa Bachman Announced as Keynote Speaker at Boone and Crockett Club\'s 32nd Big Game Awards',
         'x-brand-color': '#667eea'
       }
     };

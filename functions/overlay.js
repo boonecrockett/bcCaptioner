@@ -9,8 +9,17 @@ const crypto = require('crypto');
 function wrapText(context, text, maxWidth) {
     const words = text.split(' ');
     
-    // If text fits on one line, return as is
-    if (context.measureText(text).width <= maxWidth) {
+    // Try to measure text, but handle measurement failures
+    let canMeasure = true;
+    try {
+        context.measureText(text).width;
+    } catch (error) {
+        canMeasure = false;
+        console.log('[FALLBACK] Text measurement not available, using word-based wrapping');
+    }
+    
+    // If text measurement works and fits on one line, return as is
+    if (canMeasure && context.measureText(text).width <= maxWidth) {
         return [text];
     }
     
@@ -18,36 +27,54 @@ function wrapText(context, text, maxWidth) {
     if (words.length >= 4) {
         const midPoint = Math.floor(words.length / 2);
         
-        // Try different split points around the midpoint to find the most balanced
-        let bestSplit = midPoint;
-        let bestBalance = Infinity;
-        
-        for (let i = Math.max(1, midPoint - 2); i <= Math.min(words.length - 1, midPoint + 2); i++) {
-            const firstLine = words.slice(0, i).join(' ');
-            const secondLine = words.slice(i).join(' ');
+        if (canMeasure) {
+            // Try different split points around the midpoint to find the most balanced
+            let bestSplit = midPoint;
+            let bestBalance = Infinity;
             
-            const firstWidth = context.measureText(firstLine).width;
-            const secondWidth = context.measureText(secondLine).width;
-            
-            // Check if both lines fit within maxWidth
-            if (firstWidth <= maxWidth && secondWidth <= maxWidth) {
-                // Calculate balance score (lower is better)
-                const balance = Math.abs(firstWidth - secondWidth);
-                if (balance < bestBalance) {
-                    bestBalance = balance;
-                    bestSplit = i;
+            for (let i = Math.max(1, midPoint - 2); i <= Math.min(words.length - 1, midPoint + 2); i++) {
+                const firstLine = words.slice(0, i).join(' ');
+                const secondLine = words.slice(i).join(' ');
+                
+                const firstWidth = context.measureText(firstLine).width;
+                const secondWidth = context.measureText(secondLine).width;
+                
+                // Check if both lines fit within maxWidth
+                if (firstWidth <= maxWidth && secondWidth <= maxWidth) {
+                    // Calculate balance score (lower is better)
+                    const balance = Math.abs(firstWidth - secondWidth);
+                    if (balance < bestBalance) {
+                        bestBalance = balance;
+                        bestSplit = i;
+                    }
                 }
             }
-        }
-        
-        const firstLine = words.slice(0, bestSplit).join(' ');
-        const secondLine = words.slice(bestSplit).join(' ');
-        
-        // Verify both lines fit
-        if (context.measureText(firstLine).width <= maxWidth && 
-            context.measureText(secondLine).width <= maxWidth) {
+            
+            const firstLine = words.slice(0, bestSplit).join(' ');
+            const secondLine = words.slice(bestSplit).join(' ');
+            
+            // Verify both lines fit
+            if (context.measureText(firstLine).width <= maxWidth && 
+                context.measureText(secondLine).width <= maxWidth) {
+                return [firstLine, secondLine];
+            }
+        } else {
+            // Fallback: split at midpoint when measurement fails
+            console.log(`[FALLBACK] Using midpoint split for ${words.length} words`);
+            const firstLine = words.slice(0, midPoint).join(' ');
+            const secondLine = words.slice(midPoint).join(' ');
+            console.log(`[FALLBACK] Split into: "${firstLine}" | "${secondLine}"`);
             return [firstLine, secondLine];
         }
+    }
+    
+    // For shorter text without measurement, try simple word-based splitting
+    if (!canMeasure && words.length >= 2) {
+        const midPoint = Math.floor(words.length / 2);
+        const firstLine = words.slice(0, midPoint).join(' ');
+        const secondLine = words.slice(midPoint).join(' ');
+        console.log(`[FALLBACK] Simple split: "${firstLine}" | "${secondLine}"`);
+        return [firstLine, secondLine];
     }
     
     // Fallback to original greedy wrapping if balanced splitting fails
