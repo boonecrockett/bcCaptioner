@@ -230,80 +230,47 @@ exports.handler = async (event) => {
     console.log(`[DEBUG] Image dimensions: ${outputWidth}x${outputHeight}px`);
     console.log(`[DEBUG] Overlay boundaries check: boxLeft=${boxLeft}, boxTop=${boxTop}, boxRight=${boxLeft + boxWidth}, boxBottom=${boxTop + boxHeight}`);
 
-    // Both Canvas fillText and SVG text rendering fail on server - try Canvas-to-PNG approach
-    console.log(`[DEBUG] Creating Canvas-based PNG overlay to bypass server text rendering issues`);
+    // Switch to pure Sharp-based SVG overlay with minimal structure to test server rendering
+    console.log(`[DEBUG] Creating minimal Sharp-based SVG overlay to test server rendering`);
     
-    let overlayBuffer;
-    try {
-        // Create Canvas-based PNG overlay to bypass both Canvas fillText and SVG text issues
-        console.log(`[DEBUG] Attempting to create Canvas: ${outputWidth}x${outputHeight}`);
-        const overlayCanvas = createCanvas(outputWidth, outputHeight);
-        console.log(`[DEBUG] Canvas created successfully`);
-        
-        const overlayContext = overlayCanvas.getContext('2d');
-        console.log(`[DEBUG] Canvas context obtained successfully`);
-        
-        // Set font for overlay canvas
-        overlayContext.font = `${fontSize}px Arial`;
-        overlayContext.textAlign = 'center';
-        overlayContext.textBaseline = 'top';
-        
-        // Draw background box with rounded corners
-        overlayContext.fillStyle = 'rgba(0, 0, 0, 0.85)';
-        overlayContext.beginPath();
-        overlayContext.roundRect(boxLeft, boxTop, boxWidth, boxHeight, 5);
-        overlayContext.fill();
-        
-        // Draw text lines
-        overlayContext.fillStyle = 'white';
-        const textTop = boxTop + padding - 30; // Move text up 30 pixels (24 more than original)
-        
-        lines.forEach((line, index) => {
-          const yPosition = textTop + (index * fontSize * 1.2) + fontSize;
-          const xPosition = boxLeft + (boxWidth / 2);
-          
-          // Clean text content
-          const cleanedLine = line
-            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-            .replace(/[^\x20-\x7E\u00A0-\uFFFF]/g, '')
-            .trim();
-          
-          console.log(`[DEBUG] Drawing line ${index + 1}: "${cleanedLine}" at (${xPosition}, ${yPosition})`);
-          
-          // Force text rendering with fallback
-          try {
-            overlayContext.fillText(cleanedLine, xPosition, yPosition);
-            console.log(`[DEBUG] Text drawn successfully for line ${index + 1}`);
-          } catch (error) {
-            console.error(`[DEBUG] Text drawing failed for line ${index + 1}:`, error);
-            // Try with basic ASCII fallback
-            const asciiLine = cleanedLine.replace(/[^\x20-\x7E]/g, '');
-            overlayContext.fillText(asciiLine, xPosition, yPosition);
-          }
-        });
+    // Calculate text positions for SVG
+    const textTop = boxTop + padding - 10; // Move text up 10 pixels (previously -20, now -10 to move down 10px more)
+    let textElements = '';
+    lines.forEach((line, index) => {
+      const yPosition = textTop + (index * fontSize * 1.2) + fontSize;
+      const xPosition = boxLeft + (boxWidth / 2);
+      
+      // Clean text content
+      const cleanedLine = line
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        .replace(/[^\x20-\x7E\u00A0-\uFFFF]/g, '')
+        .trim()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+      
+      console.log(`[DEBUG] Adding line ${index + 1}: "${cleanedLine}" at (${xPosition}, ${yPosition})`);
+      
+      // Add text element with minimal styling
+      textElements += `<text x="${xPosition}" y="${yPosition}" font-family="Arial" font-size="${fontSize}" fill="white" text-anchor="middle">${cleanedLine}</text>`;
+    });
     
-        // Convert Canvas to PNG buffer
-        overlayBuffer = overlayCanvas.toBuffer('image/png');
-        console.log(`[DEBUG] Canvas overlay PNG buffer created:`, overlayBuffer.length, 'bytes');
-        console.log(`[DEBUG] Overlay dimensions: ${outputWidth}x${outputHeight}`);
-        console.log(`[DEBUG] Text box: ${boxLeft},${boxTop} ${boxWidth}x${boxHeight}`);
-        console.log(`[DEBUG] Font: ${fontSize}px Arial`);
-        console.log(`[DEBUG] Lines: ${lines.length}`);
-        console.log(`[DEBUG] Using Canvas-to-PNG approach to bypass server text rendering issues`);
-        
-    } catch (canvasError) {
-        console.error(`[CRITICAL] Canvas operations completely failed on server:`, canvasError);
-        console.log(`[FALLBACK] Creating simple Sharp-based rectangle overlay without text`);
-        
-        // Create a simple colored rectangle as absolute fallback
-        const fallbackSvg = `<svg width="${outputWidth}" height="${outputHeight}" xmlns="http://www.w3.org/2000/svg">
-            <rect x="${boxLeft}" y="${boxTop}" width="${boxWidth}" height="${boxHeight}" fill="rgba(0,0,0,0.85)" rx="5" ry="5"/>
-            <text x="${boxLeft + (boxWidth / 2)}" y="${boxTop + (boxHeight / 2)}" font-family="Arial" font-size="20" fill="white" text-anchor="middle" dominant-baseline="middle">TEXT RENDERING FAILED</text>
-        </svg>`;
-        
-        overlayBuffer = Buffer.from(fallbackSvg);
-        console.log(`[FALLBACK] Created fallback SVG overlay:`, overlayBuffer.length, 'bytes');
-    }
+    // Create minimal SVG overlay
+    const svgOverlay = `<svg width="${outputWidth}" height="${outputHeight}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="${boxLeft}" y="${boxTop}" width="${boxWidth}" height="${boxHeight}" fill="rgba(0,0,0,0.85)" rx="5" ry="5"/>
+        ${textElements}
+    </svg>`;
+    
+    console.log(`[DEBUG] Created minimal SVG overlay with ${lines.length} text lines`);
+    console.log(`[DEBUG] SVG dimensions: ${outputWidth}x${outputHeight}`);
+    console.log(`[DEBUG] Text box: ${boxLeft},${boxTop} ${boxWidth}x${boxHeight}`);
+    console.log(`[DEBUG] Font: ${fontSize}px Arial`);
+    
+    // Convert SVG to buffer for Sharp composite
+    const overlayBuffer = Buffer.from(svgOverlay);
+    console.log(`[DEBUG] SVG overlay buffer created:`, overlayBuffer.length, 'bytes');
 
     // Process image: resize and composite single overlay
     let outputBuffer;
