@@ -253,8 +253,8 @@ exports.handler = async (event) => {
       
       console.log(`[DEBUG] Adding line ${index + 1}: "${cleanedLine}" at (${xPosition}, ${yPosition})`);
       
-      // Add text element with minimal styling
-      textElements += `<text x="${xPosition}" y="${yPosition}" font-family="Arial" font-size="${fontSize}" fill="white" text-anchor="middle">${cleanedLine}</text>`;
+      // Add text element with minimal styling and font fallback chain
+      textElements += `<text x="${xPosition}" y="${yPosition}" font-family="Arial, Helvetica, 'DejaVu Sans', sans-serif" font-size="${fontSize}" fill="white" text-anchor="middle">${cleanedLine}</text>`;
     });
     
     // Create minimal SVG overlay
