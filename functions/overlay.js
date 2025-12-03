@@ -4,6 +4,7 @@ const parser = require('lambda-multipart-parser');
 const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
+const { getStore } = require('@netlify/blobs');
 
 // Helper function to wrap text
 function wrapText(context, text, maxWidth) {
@@ -30,11 +31,11 @@ exports.handler = async (event) => {
     // Check if this is a request for a cached image first
     const queryParams = event.queryStringParameters || {};
     if (queryParams.serve === 'image' && queryParams.id) {
-      // Retrieve cached image
-      global.imageCache = global.imageCache || new Map();
-      const cachedImage = global.imageCache.get(queryParams.id);
+      // Retrieve image from Netlify Blobs
+      const store = getStore({ name: 'instagram-overlays' });
+      const imageData = await store.get(`overlays/${queryParams.id}.jpg`, { type: 'arrayBuffer' });
       
-      if (!cachedImage) {
+      if (!imageData) {
         return {
           statusCode: 404,
           headers: { 'Content-Type': 'application/json' },
@@ -42,15 +43,16 @@ exports.handler = async (event) => {
         };
       }
       
-      // Serve the cached image
+      // Serve the image from blob storage
+      const buffer = Buffer.from(imageData);
       return {
         statusCode: 200,
         headers: { 
           'Content-Type': 'image/jpeg',
           'Cache-Control': 'public, max-age=3600',
-          'Content-Length': cachedImage.buffer.length.toString()
+          'Content-Length': buffer.length.toString()
         },
-        body: cachedImage.buffer.toString('base64'),
+        body: buffer.toString('base64'),
         isBase64Encoded: true
       };
     }
@@ -196,7 +198,7 @@ exports.handler = async (event) => {
     
     // Draw text exactly in the center of the box (5px padding accounted for)
     const textX = boxWidth / 2;
-    const textY = (boxHeight / 2) - 2; // Move text up by 2 pixels (was 4, now moved down 2)
+    const textY = (boxHeight / 2) - 4; // Move text up by 4 pixels (was 2, now raised up 2)
     canvasContext.fillText(lines[0], textX, textY); // Single line for now
     
     // Convert canvas to buffer
@@ -232,22 +234,9 @@ exports.handler = async (event) => {
     const hash = crypto.createHash('md5').update(outputBuffer).digest('hex').substring(0, 8);
     const imageId = `${timestamp}-${hash}`;
     
-    // Store image data in memory cache (simple approach)
-    global.imageCache = global.imageCache || new Map();
-    global.imageCache.set(imageId, {
-      buffer: outputBuffer,
-      timestamp: timestamp,
-      caption: caption
-    });
-    
-    // Clean up old entries (keep only last 10)
-    if (global.imageCache.size > 10) {
-      const entries = Array.from(global.imageCache.entries());
-      entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-      for (let i = 0; i < entries.length - 10; i++) {
-        global.imageCache.delete(entries[i][0]);
-      }
-    }
+    // Store image in Netlify Blobs
+    const store = getStore({ name: 'instagram-overlays' });
+    await store.set(`overlays/${imageId}.jpg`, outputBuffer);
     
     // Create URL for the image
     const baseUrl = process.env.URL || 'https://bccaptioner.netlify.app';
