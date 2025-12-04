@@ -9,7 +9,7 @@ const { getStore } = require('@netlify/blobs');
 // Helper to get blob store with proper configuration for V1 functions
 function getBlobStore() {
   const siteID = process.env.BLOB_SITE_ID;
-  const token = process.env.BLOB_TOKEN;
+  const token = process.env.NETLIFY_BLOBS_TOKEN;
   
   console.log(`[BLOB] siteID present: ${!!siteID}, token present: ${!!token}`);
   
