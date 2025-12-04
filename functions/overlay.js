@@ -8,10 +8,19 @@ const { getStore } = require('@netlify/blobs');
 
 // Helper to get blob store with proper configuration for V1 functions
 function getBlobStore() {
+  const siteID = process.env.BLOB_SITE_ID;
+  const token = process.env.BLOB_TOKEN;
+  
+  console.log(`[BLOB] siteID present: ${!!siteID}, token present: ${!!token}`);
+  
+  if (!siteID || !token) {
+    throw new Error(`Blob storage not configured. BLOB_SITE_ID: ${!!siteID}, BLOB_TOKEN: ${!!token}`);
+  }
+  
   return getStore({
     name: 'instagram-overlays',
-    siteID: process.env.BLOB_SITE_ID,
-    token: process.env.BLOB_TOKEN
+    siteID,
+    token
   });
 }
 
