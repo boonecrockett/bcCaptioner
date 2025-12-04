@@ -6,6 +6,15 @@ const fs = require('fs').promises;
 const crypto = require('crypto');
 const { getStore } = require('@netlify/blobs');
 
+// Helper to get blob store with proper configuration for V1 functions
+function getBlobStore() {
+  return getStore({
+    name: 'instagram-overlays',
+    siteID: process.env.SITE_ID,
+    token: process.env.NETLIFY_BLOBS_TOKEN || process.env.NETLIFY_AUTH_TOKEN
+  });
+}
+
 // Helper function to wrap text
 function wrapText(context, text, maxWidth) {
     const words = text.split(' ');
@@ -32,7 +41,7 @@ exports.handler = async (event) => {
     const queryParams = event.queryStringParameters || {};
     if (queryParams.serve === 'image' && queryParams.id) {
       // Retrieve image from Netlify Blobs
-      const store = getStore({ name: 'instagram-overlays' });
+      const store = getBlobStore();
       const imageData = await store.get(`overlays/${queryParams.id}.jpg`, { type: 'arrayBuffer' });
       
       if (!imageData) {
@@ -235,7 +244,7 @@ exports.handler = async (event) => {
     const imageId = `${timestamp}-${hash}`;
     
     // Store image in Netlify Blobs
-    const store = getStore({ name: 'instagram-overlays' });
+    const store = getBlobStore();
     await store.set(`overlays/${imageId}.jpg`, outputBuffer);
     
     // Create URL for the image
