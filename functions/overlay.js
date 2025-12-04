@@ -10,8 +10,8 @@ const { getStore } = require('@netlify/blobs');
 function getBlobStore() {
   return getStore({
     name: 'instagram-overlays',
-    siteID: process.env.SITE_ID,
-    token: process.env.NETLIFY_BLOBS_TOKEN || process.env.NETLIFY_AUTH_TOKEN
+    siteID: process.env.BLOB_SITE_ID,
+    token: process.env.BLOB_TOKEN
   });
 }
 
