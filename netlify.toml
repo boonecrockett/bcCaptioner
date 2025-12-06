@@ -9,3 +9,9 @@
 [build.environment]
   # Ensure Sharp works properly on Netlify
   SHARP_IGNORE_GLOBAL_LIBVIPS = "1"
+
+# Redirect /images/* to the image-serving function for clean public URLs
+[[redirects]]
+  from = "/images/:id"
+  to = "/.netlify/functions/image?id=:id"
+  status = 200

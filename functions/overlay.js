@@ -46,35 +46,6 @@ function wrapText(context, text, maxWidth) {
 
 exports.handler = async (event) => {
   try {
-    // Check if this is a request for a cached image first
-    const queryParams = event.queryStringParameters || {};
-    if (queryParams.serve === 'image' && queryParams.id) {
-      // Retrieve image from Netlify Blobs
-      const store = getBlobStore();
-      const imageData = await store.get(`overlays/${queryParams.id}.jpg`, { type: 'arrayBuffer' });
-      
-      if (!imageData) {
-        return {
-          statusCode: 404,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: 'Image not found or expired' })
-        };
-      }
-      
-      // Serve the image from blob storage
-      const buffer = Buffer.from(imageData);
-      return {
-        statusCode: 200,
-        headers: { 
-          'Content-Type': 'image/jpeg',
-          'Cache-Control': 'public, max-age=3600',
-          'Content-Length': buffer.length.toString()
-        },
-        body: buffer.toString('base64'),
-        isBase64Encoded: true
-      };
-    }
-
     let caption, brandColor, imageBuffer;
 
     // Check for multipart/form-data, typically from n8n
@@ -256,9 +227,9 @@ exports.handler = async (event) => {
     const store = getBlobStore();
     await store.set(`overlays/${imageId}.jpg`, outputBuffer);
     
-    // Create URL for the image
+    // Create clean public URL for the image
     const baseUrl = process.env.URL || 'https://bccaptioner.netlify.app';
-    const imageUrl = `${baseUrl}/.netlify/functions/overlay?serve=image&id=${imageId}`;
+    const imageUrl = `${baseUrl}/images/${imageId}.jpg`;
     
     console.log(`Image cached with ID: ${imageId}`);
     console.log(`Image URL: ${imageUrl}`);
