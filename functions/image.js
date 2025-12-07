@@ -38,9 +38,23 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Extract image ID from query parameter (passed via redirect)
+    // Debug: log what we're receiving
+    console.log(`[IMAGE] Event path: ${event.path}`);
+    console.log(`[IMAGE] Event rawUrl: ${event.rawUrl}`);
+    console.log(`[IMAGE] Query params:`, JSON.stringify(event.queryStringParameters));
+    
+    // Extract image ID from query parameter (passed via redirect) or from path
     const queryParams = event.queryStringParameters || {};
     let imageId = queryParams.id;
+    
+    // Fallback: try to extract from path if query param is missing
+    if (!imageId && event.path) {
+      const pathMatch = event.path.match(/\/images\/(.+)/);
+      if (pathMatch) {
+        imageId = pathMatch[1];
+        console.log(`[IMAGE] Extracted from path: ${imageId}`);
+      }
+    }
     
     // Strip .jpg extension if present (from URL like /images/123-abc.jpg)
     if (imageId && imageId.endsWith('.jpg')) {
@@ -51,7 +65,10 @@ exports.handler = async (event) => {
       return {
         statusCode: 400,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Missing image ID. Expected: /images/:id.jpg' })
+        body: JSON.stringify({ 
+          error: 'Missing image ID. Expected: /images/:id.jpg',
+          debug: { path: event.path, query: event.queryStringParameters }
+        })
       };
     }
     
