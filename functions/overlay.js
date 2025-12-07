@@ -20,7 +20,8 @@ function getBlobStore() {
   return getStore({
     name: 'instagram-overlays',
     siteID,
-    token
+    token,
+    consistency: 'strong'  // Ensure immediate availability after write
   });
 }
 
@@ -225,7 +226,19 @@ exports.handler = async (event) => {
     
     // Store image in Netlify Blobs
     const store = getBlobStore();
-    await store.set(`overlays/${imageId}.jpg`, outputBuffer);
+    const blobKey = `overlays/${imageId}.jpg`;
+    console.log(`[OVERLAY] Storing blob with key: ${blobKey}`);
+    
+    await store.set(blobKey, outputBuffer);
+    console.log(`[OVERLAY] Blob stored successfully`);
+    
+    // Verify the blob was stored by reading it back
+    const verification = await store.get(blobKey, { type: 'arrayBuffer' });
+    if (verification) {
+      console.log(`[OVERLAY] Verification: blob exists, size: ${verification.byteLength} bytes`);
+    } else {
+      console.error(`[OVERLAY] WARNING: Blob verification failed - blob not found after store!`);
+    }
     
     // Create clean public URL for the image
     const baseUrl = process.env.URL || 'https://bccaptioner.netlify.app';

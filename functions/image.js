@@ -12,7 +12,8 @@ function getBlobStore() {
   return getStore({
     name: 'instagram-overlays',
     siteID,
-    token
+    token,
+    consistency: 'strong'  // Ensure immediate availability after write
   });
 }
 
@@ -58,15 +59,29 @@ exports.handler = async (event) => {
     
     // Retrieve image from Netlify Blobs
     const store = getBlobStore();
-    const imageData = await store.get(`overlays/${imageId}.jpg`, { type: 'arrayBuffer' });
+    const blobKey = `overlays/${imageId}.jpg`;
+    console.log(`[IMAGE] Looking for blob key: ${blobKey}`);
+    
+    // List available blobs for debugging
+    try {
+      const list = await store.list({ prefix: 'overlays/' });
+      console.log(`[IMAGE] Available blobs in store:`, list.blobs?.map(b => b.key).slice(0, 10) || 'none');
+    } catch (listErr) {
+      console.log(`[IMAGE] Could not list blobs: ${listErr.message}`);
+    }
+    
+    const imageData = await store.get(blobKey, { type: 'arrayBuffer' });
     
     if (!imageData) {
+      console.log(`[IMAGE] Blob not found for key: ${blobKey}`);
       return {
         statusCode: 404,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Image not found' })
+        body: JSON.stringify({ error: 'Image not found', key: blobKey })
       };
     }
+    
+    console.log(`[IMAGE] Found blob, size: ${imageData.byteLength} bytes`);
     
     // Serve the image with headers compatible with Instagram Container API
     const buffer = Buffer.from(imageData);
