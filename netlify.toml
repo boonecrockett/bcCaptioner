@@ -12,6 +12,6 @@
 
 # Redirect /images/* to the image-serving function for clean public URLs
 [[redirects]]
-  from = "/images/:id"
-  to = "/.netlify/functions/image?id=:id"
+  from = "/images/*"
+  to = "/.netlify/functions/image?id=:splat"
   status = 200
